@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import cast
 import anthropic
 from anthropic import Anthropic
-from anthropic.types import ThinkingBlock, ToolUseBlock, ContentBlock
+from anthropic.types import ThinkingBlock, ToolUseBlock
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
