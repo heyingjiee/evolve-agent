@@ -1,12 +1,25 @@
 import os
 import subprocess
 from dataclasses import dataclass
+
+
+try:
+    import readline
+    # #143 UTF-8 backspace fix for macOS libedit
+    readline.parse_and_bind('set bind-tty-special-chars off')
+    readline.parse_and_bind('set input-meta on')
+    readline.parse_and_bind('set output-meta on')
+    readline.parse_and_bind('set convert-meta off')
+    readline.parse_and_bind('set enable-meta-keybindings on')
+except ImportError:
+    pass
+
+
 from pathlib import Path
 from typing import cast
-
 import anthropic
 from anthropic import Anthropic
-from anthropic.types import ThinkingBlock, ToolUseBlock
+from anthropic.types import ThinkingBlock, ToolUseBlock, ContentBlock
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -118,7 +131,7 @@ CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
-    "read_file": lambda **kw: run_read(kw["path"], kw["limit"]),
+    "read_file": lambda **kw: run_read(kw["path"], kw.get("limit")), # limit是可选参数，需要用get
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
     "edit_file": lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"])
 }
@@ -228,12 +241,16 @@ def normalize_messages(messages: list) -> list:
         if isinstance(msg.get("content"), str):
             clean["content"] = msg["content"]
         elif isinstance(msg.get("content"), list):
-            clean["content"] = [
-                {k: v for k, v in block.items()
-                 if not k.startswith("_")}
-                for block in msg["content"]
-                if isinstance(block, dict)
-            ]
+            content = []
+            for block in msg["content"]:
+                if getattr(block, "type", None): # sdk 返回的不是字典，而是ContentBlock对象
+                    temp = {"type": block.type}
+                    for attr in ("id", "name", "input", "text", "thinking"):
+                        val = getattr(block, attr, None)
+                        if val is not None:
+                            temp[attr] = val
+                        content.append(temp)
+            clean["content"] = content
         else:
             clean["content"] = msg.get("content", "")
         cleaned.append(clean)
