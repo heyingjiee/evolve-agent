@@ -16,7 +16,7 @@ except ImportError:
 from tools import TOOL_HANDLERS, bash_schema, read_schema, write_schema, edit_schema, TODO, todo_schema
 from typing import cast
 from anthropic import Anthropic
-from anthropic.types import ThinkingBlock, ToolUseBlock
+from anthropic.types import ThinkingBlock, ToolUseBlock, TextBlock
 from dotenv import load_dotenv
 
 
@@ -40,9 +40,12 @@ SYSTEM = """
     "Use bash to inspect and change the workspace. Act first, then report clearly."
 """
 
+# 子Agent系统提示词
+SUB_SYSTEM = f"You are a coding subagent at {os.getcwd()}. Complete the given task, then summarize your findings"
+
+
 # 计划经过多少轮触发提醒
 PLAN_REMINDER_INTERVAL = 3
-
 
 def extract_text(content: list[ThinkingBlock] | str):
     if not isinstance(content, list):
@@ -55,19 +58,73 @@ def extract_text(content: list[ThinkingBlock] | str):
     return "\n".join(texts)
 
 
-
 CONCURRENCY_SAFE = {"read_file"}
 CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 
-TOOLS = [bash_schema, read_schema, write_schema, edit_schema, todo_schema]
+task_schema = [{
+    "name": "task",
+    "description": "Run a subtask in a clean context and return a summary",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"},
+            "description":  {"type": "string", "description": "Short description of the task"}
+        },
+        "required": ["prompt"]
+    }
+}]
 
+TOOLS = [bash_schema, read_schema, write_schema, edit_schema, todo_schema] + task_schema
+CHILD_TOOLS = [bash_schema, read_schema, write_schema, edit_schema]
+
+# 子Agent
+def run_subagent(prompt: str) -> str:
+    sub_message:list = [{"role": "user", "content": prompt}]
+    # 最大30轮循环
+    for _ in range(30):
+        resp = client.messages.create(
+            model=MODEL,
+            system=SUB_SYSTEM,
+            messages=sub_message,
+            tools=CHILD_TOOLS,
+            max_tokens=8000
+        )
+
+        sub_message.append({"role": "assistant", "content": resp.content})
+
+        # 不是工具调用，结束
+        if resp.stop_reason != "tool_use":
+            break
+
+        # 工具调用
+        results = []
+        for block in resp.content:
+            if block.type == 'tool_use':
+                block = cast(ToolUseBlock, block)  # 重新断言
+                try:
+                    handler = TOOL_HANDLERS.get(block.name)
+                    if handler:
+                        output = handler(**block.input)
+                    else:
+                        output = f"Unknown tool: {block.name}"
+                except Exception as e:
+                    output = f"Error: {e}"
+
+                print(f"[Tool] {block.name}: {block.input}")
+                print(f"[Tool Result] {output[:200]}")
+                # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
+                results.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
+
+        sub_message.append({"role": "user", "content": results})
+    # 最后一轮是摘要, LLM返回的content是 [ContentBlock] ，需要用 getattr，取 type
+    return "".join(cast(TextBlock, content).text for content in resp.content if getattr(content, "type") == "text") or "(no summary)"
 
 # 统一处理下
 def normalize_messages(messages: list) -> list:
     """
         # messages = [
         #   {"role": "user", "content": "你好"},
-        #   {"role": "assistant", "content": [ThinkingBlock(), TextBlock()] } # 返回回答
+        #   {"role": "assistant", "content": [ThinkingBlock(), TextBlock("type": "text", "text": "答案")] } # 返回回答
         #   {"role": "assistant", "content": [ThinkingBlock(), ThinkingBlock("type": "tool_use", "id": "xxxxx")] } # 返回工具调用
         # ]
         # AI返回的每条消息的content不是字符串，是list[ContentBlock]，我们必须转成字符串再传给大模型
@@ -135,7 +192,7 @@ def normalize_messages(messages: list) -> list:
             merged.append(msg)
     return merged
 
-
+# 核心Agent Loop
 def agent_loop(messages: list):
     """ 单词循环， True会进入下一轮循环 ，False结束循环"""
     while True:
@@ -158,16 +215,18 @@ def agent_loop(messages: list):
         results = []
         used_todo = False
         for block in resp.content:
-            if block.type == 'tool_use':
+            if block.type == "tool_use":
                 block = cast(ToolUseBlock, block)  # 重新断言
-                try:
+                if block.name == "task":
+                    # task 工具
+                    desc = cast(str, block.input.get("description", "subtask"))
+                    prompt = cast(str, block.input.get("prompt", ""))
+                    print(f"> task: {desc}: {prompt[:80]}")
+                    output = run_subagent(prompt)
+                else:
+                    # 其他工具
                     handler = TOOL_HANDLERS.get(block.name)
-                    if handler:
-                        output = handler(**block.input)
-                    else:
-                        output = f"Unknown tool: {block.name}"
-                except Exception as e:
-                    output = f"Error: {e}"
+                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
 
                 print(f"[Tool] {block.name}: {block.input}")
                 print(f"[Tool Result] {output[:200]}")
@@ -175,12 +234,15 @@ def agent_loop(messages: list):
                 results.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
 
                 # 记录调用过计划工具
-                if block == 'todo':
+                if block.name == 'todo':
                     used_todo = True
 
+
         if used_todo:
+            # 调用了todo工具
             TODO.state.rounds_since_update = 0
         else:
+            # 没有调用就计数，然后触发reminder
             TODO.note_round_without_update()
             reminder = TODO.reminder()
             if reminder:
