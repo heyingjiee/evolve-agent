@@ -1,9 +1,21 @@
 import os
 import subprocess
 from dataclasses import dataclass
+
+try:
+    import readline
+    # #143 UTF-8 backspace fix for macOS libedit
+    readline.parse_and_bind('set bind-tty-special-chars off')
+    readline.parse_and_bind('set input-meta on')
+    readline.parse_and_bind('set output-meta on')
+    readline.parse_and_bind('set convert-meta off')
+    readline.parse_and_bind('set enable-meta-keybindings on')
+except ImportError:
+    pass
+
+
 from pathlib import Path
 from typing import cast
-
 import anthropic
 from anthropic import Anthropic
 from anthropic.types import ThinkingBlock, ToolUseBlock
@@ -118,7 +130,7 @@ CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 
 TOOL_HANDLERS = {
     "bash": lambda **kw: run_bash(kw["command"]),
-    "read_file": lambda **kw: run_read(kw["path"], kw["limit"]),
+    "read_file": lambda **kw: run_read(kw["path"], kw.get("limit")), # limit是可选参数，需要用get
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
     "edit_file": lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"])
 }
