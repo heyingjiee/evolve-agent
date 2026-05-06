@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 try:
     import readline
@@ -8,12 +9,12 @@ try:
     readline.parse_and_bind('set input-meta on')
     readline.parse_and_bind('set output-meta on')
     readline.parse_and_bind('set convert-meta off')
-    readline.parse_and_bind('set enable-meta-keybindings on')
+    # readline.parse_and_bind('set enable-meta-keybindings on')
 except ImportError:
     pass
 
 
-from tools import TOOL_HANDLERS, bash_schema, read_schema, write_schema, edit_schema, TODO, todo_schema
+import tools
 from typing import cast
 from anthropic import Anthropic
 from anthropic.types import ThinkingBlock, ToolUseBlock, TextBlock
@@ -31,21 +32,30 @@ client = Anthropic(
     api_key=os.environ.get("ANTHROPIC_API_KEY"),  # This is the default and can be omitted
 )
 
+# 运行目录
+WORKDIR = Path.cwd()
+
 # 模型
 MODEL = os.getenv('MODEL_ID', 'claude-opus-4-6')
 
+# Skill目录
+SKILLS_DIR = WORKDIR / "skills"
+
+# Skill仓库
+SKILL_REGISTRY = tools.SkillRegistry(SKILLS_DIR)
+
 # 系统提示词
-SYSTEM = """
-    f"You are a coding agent at {os.getcwd()}"
-    "Use bash to inspect and change the workspace. Act first, then report clearly."
+SYSTEM = f"""You are a coding agent at {WORKDIR}.
+Use bash to inspect and change the workspace. Act first, then report clearly.
+Skills available:
+{SKILL_REGISTRY.describe_available()}
 """
 
 # 子Agent系统提示词
-SUB_SYSTEM = f"You are a coding subagent at {os.getcwd()}. Complete the given task, then summarize your findings"
+SUB_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings"
 
-
-# 计划经过多少轮触发提醒
-PLAN_REMINDER_INTERVAL = 3
+# 任务管理器
+TODO = tools.TodoManager(3)
 
 def extract_text(content: list[ThinkingBlock] | str):
     if not isinstance(content, list):
@@ -74,8 +84,20 @@ task_schema = [{
     }
 }]
 
-TOOLS = [bash_schema, read_schema, write_schema, edit_schema, todo_schema] + task_schema
-CHILD_TOOLS = [bash_schema, read_schema, write_schema, edit_schema]
+# 工具Schema
+TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema, tools.todo_schema] + task_schema
+CHILD_TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema]
+
+
+# 工具映射
+TOOL_HANDLERS = {
+    "bash": lambda **kw: tools.run_bash(kw["command"]),
+    "read_file": lambda **kw: tools.run_read(kw["path"], kw.get("limit")),  # limit是可选参数，需要用get
+    "write_file": lambda **kw: tools.run_write(kw["path"], kw["content"]),
+    "edit_file": lambda **kw: tools.run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+    "todo": lambda **kw: TODO.update(kw["items"]),
+    "load_skill": lambda **kw: SKILL_REGISTRY.load_full_text(kw["name"]),
+}
 
 # 子Agent
 def run_subagent(prompt: str) -> str:
@@ -221,7 +243,7 @@ def agent_loop(messages: list):
                     # task 工具
                     desc = cast(str, block.input.get("description", "subtask"))
                     prompt = cast(str, block.input.get("prompt", ""))
-                    print(f"> task: {desc}: {prompt[:80]}")
+                    print(f"[Subagent]: {desc}: {prompt[:80]}")
                     output = run_subagent(prompt)
                 else:
                     # 其他工具
@@ -267,4 +289,7 @@ if __name__ == "__main__":
         print(final_text)
 
 
-# plan测试 ：帮我规划五一推荐景点、以及景点的热门项目、美食推荐
+
+# plan测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
+
+# subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md

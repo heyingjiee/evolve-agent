@@ -22,7 +22,7 @@ class TodoManager:
         self.state = PlanningState()
         self.reminder_interval =  reminder_interval
 
-    def update(self, items: list[PlanItem]):
+    def update(self, items: list):
         if len(items) > 12:
             raise ValueError("Keep the session plan short (max 12 items)")
 
@@ -30,9 +30,9 @@ class TodoManager:
         in_progress_count = 0
 
         for index, raw_item in enumerate(items):
-            content = str(raw_item.content).strip()
-            status = str(raw_item.status).lower()
-            active_form = str(raw_item.active_form).strip()
+            content =  str(raw_item.get("content", "")).strip()
+            status = str(raw_item.get("status", "pending")).lower()
+            active_form = str(raw_item.get("activeForm", "")).strip()
             if not content:
                 raise ValueError(f"Item {index}: content required")
             if status not in {"pending", "in_progress", "completed"}:
