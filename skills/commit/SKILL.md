@@ -5,9 +5,9 @@ description: 提交代码
 # commit
 
 ## 流程
-1.查看工作区文件变动，更具修改内容生成一条简单的 commit message
+1.查看工作区文件变动，更具修改内容生成一条简短的 subject 
 
-2.必须使用 Conventional Commits 规范，格式如下
+2.commit message 必须使用 Conventional Commits 规范，格式如下
 ```shell
 <type>: <subject>
 ```
