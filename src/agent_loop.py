@@ -1,5 +1,10 @@
+import json
 import os
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from tools import CompactState
 
 try:
     import readline
@@ -55,7 +60,7 @@ Skills available:
 SUB_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings"
 
 # 任务管理器
-TODO = tools.TodoManager(3)
+TODO = tools.TodoManager(os.getenv('REMINDER_INTERVAL', 3))
 
 def extract_text(content: list[ThinkingBlock] | str):
     if not isinstance(content, list):
@@ -66,6 +71,109 @@ def extract_text(content: list[ThinkingBlock] | str):
         if text:
             texts.append(text)
     return "\n".join(texts)
+
+
+
+def collect_tool_result_blocks(messages: list):
+    """ 从message中过滤提取工具返回信息 """
+    blocks = []
+    for message_index, message  in  enumerate(messages):
+        if message["role"] == "user" and isinstance(message["content"], list):
+            for block_index,block in enumerate(message["content"]):
+                if isinstance(block, dict) and block["type"] == "tool_result":
+                    blocks.append((message_index, block_index, block))
+    return blocks
+
+def micro_compact(messages: list) -> list:
+    """
+        压缩工具返回内容
+        1. 提取工具返回的信息 collect_tool_result_blocks
+
+     """
+    tool_results = collect_tool_result_blocks(messages)
+    keep_recent_tool_results = os.getenv("KEEP_RECENT_TOOL_RESULTS", 3)
+    if len(tool_results) < keep_recent_tool_results:
+        # 不压缩工具返回结果
+        return messages
+
+    # 压缩
+    for _, _, block in tool_results[:keep_recent_tool_results]:
+        content = block.get("content", "")
+        if not isinstance(content, str) or len(content) <= 120:
+            continue
+        block["content"] = "[Earlier tool result compacted. Re-run the tool if you need full detail.]"
+    return messages
+
+
+def write_transcript(messages: list) -> Path:
+    """ 把message信息写入文件，返回文件路径 """
+    transcript_dir = Path.cwd() / os.getenv("TRANSCRIPT_DIR", "./transcripts")
+    transcript_dir.mkdir(parents=True, exist_ok=True)  # 保证目录一定有，后面才能写入
+    store_path = transcript_dir / f"transcript_{int(time.time())}.json"
+
+    # 没有一口气写入 messages，是出于内存考虑，防止内存溢出
+    with store_path.open("w") as handler:
+        for message in messages:
+            handler.write(json.dumps(message, default=str))
+    return store_path
+
+def summarize_history(messages: list) -> str:
+    """调用大模型总结摘要"""
+    conversation = json.dumps(messages, default=str)
+    prompt = (
+        "Summarize this coding-agent conversation so work can continue.\n"
+        "Preserve:\n"
+        "1. The current goal\n"
+        "2. Important findings and decisions\n"
+        "3. Files read or changed\n"
+        "4. Remaining work\n"
+        "5. User constraints and preferences\n"
+        "Be compact but concrete.\n\n"
+        f"{conversation}"
+    )
+    resp = client.messages.create(
+        model = MODEL,
+        messages = [{"role": "user", "content": prompt}],
+        max_tokens = 2000
+    )
+
+    return resp.content[0].text.strip()
+
+def compact_history(messages: list, state: CompactState, focus: str | None = None, ):
+    """
+        压缩历史记录
+        1、把messages写入文件  write_transcript
+        2、生成摘要 summarize_history
+        3、更新state状态信息
+        4、返回压缩后的一条message
+     """
+    # 历史写入文件
+    transcript_path = write_transcript(messages)
+    print(f"[transcript saved: {transcript_path}]")
+    summary = summarize_history(messages)
+    if focus:
+        summary += f"\n\nFocus to preserve next: {focus}"
+    else:
+        recent_lines = "\n".join(f"- {path}" for path in state.recent_files)
+        summary += f"\n\nRecent files to reopen if needed:\n{recent_lines}"
+
+    state.has_compacted = True
+    state.last_summary =summary
+    return [{"role": "user", "content": (
+        "This conversation was compacted so work can continue.\n"
+        f"{summary}"
+    )}]
+
+compact_schema = [{
+    "name": "compact",
+    "description": "Summarize earlier conversation so work can continue in a smaller context",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "focus": {"type": "string"}
+        }
+    }
+}]
 
 
 CONCURRENCY_SAFE = {"read_file"}
@@ -85,23 +193,36 @@ task_schema = [{
 }]
 
 # 工具Schema
-TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema, tools.todo_schema] + task_schema
+TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema, tools.todo_schema] + task_schema + compact_schema
 CHILD_TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema]
 
-
-# 工具映射
-TOOL_HANDLERS = {
-    "bash": lambda **kw: tools.run_bash(kw["command"]),
-    "read_file": lambda **kw: tools.run_read(kw["path"], kw.get("limit")),  # limit是可选参数，需要用get
-    "write_file": lambda **kw: tools.run_write(kw["path"], kw["content"]),
-    "edit_file": lambda **kw: tools.run_edit(kw["path"], kw["old_text"], kw["new_text"]),
-    "todo": lambda **kw: TODO.update(kw["items"]),
-    "load_skill": lambda **kw: SKILL_REGISTRY.load_full_text(kw["name"]),
-}
+# TDOO: 这里是全量的工具，没有做Agent、SubAgent的区别。目前只是在传入的Schema上做了区分，建议后续增加判断
+def execute_tool(block, state: CompactState) -> str:
+    if block.name == 'bash':
+        return tools.run_bash(block.input["command"], block.id)
+    if block.name == 'read_file':
+        return tools.run_read(block.input["path"], block.id, state, block.input.get("limit"))
+    if block.name == 'write_file':
+        return tools.run_write(block.input["path"], block.input["content"])
+    if block.name == 'edit_file':
+        return tools.run_edit(block.input["path"], block.input["old_text"], block.input["new_text"])
+    if block.name == 'todo':
+       return TODO.update(block.input["items"])
+    if block.name == 'task':
+       desc = cast(str, block.input.get("description", "subtask"))
+       prompt = cast(str, block.input.get("prompt", ""))
+       print(f"[Subagent]: {desc}: {prompt[:80]}")
+       return run_subagent(prompt)
+    if block.name == 'load_skill':
+       return SKILL_REGISTRY.load_full_text(block.input["name"])
+    if block.name == 'compact':
+       return "Compacting conversation..." # 真正的压缩不在这里，在agent loop
+    return f"Unknown tool: {block.name}"
 
 # 子Agent
 def run_subagent(prompt: str) -> str:
     sub_message:list = [{"role": "user", "content": prompt}]
+    compact_state = CompactState()
     # 最大30轮循环
     for _ in range(30):
         resp = client.messages.create(
@@ -123,15 +244,7 @@ def run_subagent(prompt: str) -> str:
         for block in resp.content:
             if block.type == 'tool_use':
                 block = cast(ToolUseBlock, block)  # 重新断言
-                try:
-                    handler = TOOL_HANDLERS.get(block.name)
-                    if handler:
-                        output = handler(**block.input)
-                    else:
-                        output = f"Unknown tool: {block.name}"
-                except Exception as e:
-                    output = f"Error: {e}"
-
+                output = execute_tool(block, compact_state)
                 print(f"[Tool] {block.name}: {block.input}")
                 print(f"[Tool Result] {output[:200]}")
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
@@ -140,6 +253,7 @@ def run_subagent(prompt: str) -> str:
         sub_message.append({"role": "user", "content": results})
     # 最后一轮是摘要, LLM返回的content是 [ContentBlock] ，需要用 getattr，取 type
     return "".join(cast(TextBlock, content).text for content in resp.content if getattr(content, "type") == "text") or "(no summary)"
+
 
 # 统一处理下
 def normalize_messages(messages: list) -> list:
@@ -215,14 +329,25 @@ def normalize_messages(messages: list) -> list:
     return merged
 
 # 核心Agent Loop
-def agent_loop(messages: list):
+def agent_loop(messages: list, state: CompactState):
     """ 单词循环， True会进入下一轮循环 ，False结束循环"""
     while True:
+        # 规范化参数
+        messages[:] = normalize_messages(messages) # 这是原地修改
 
+        # 压缩工具返回结果
+        messages[:] = micro_compact(messages)
+
+        # 超过上限压缩上下文
+        if len(str(messages)) > os.getenv("CONTEXT_LIMIT", 50000):
+            print("[auto compact conversation history]")
+            messages[:] = compact_history(messages, state)
+
+        # 调用模型
         resp = client.messages.create(
             model=MODEL,
             system=SYSTEM,
-            messages=normalize_messages(messages),
+            messages=messages,
             tools=TOOLS,
             max_tokens=8000
         )
@@ -235,20 +360,13 @@ def agent_loop(messages: list):
 
         # 工具调用
         results = []
-        used_todo = False
+        used_todo = False # 存储本轮对话中，是否调用了计划工具
+        manual_compact = False # 存储本轮对话中，是否调用了压缩工具
+        compact_focus = None # LLM 返回是否压缩上下文
         for block in resp.content:
             if block.type == "tool_use":
                 block = cast(ToolUseBlock, block)  # 重新断言
-                if block.name == "task":
-                    # task 工具
-                    desc = cast(str, block.input.get("description", "subtask"))
-                    prompt = cast(str, block.input.get("prompt", ""))
-                    print(f"[Subagent]: {desc}: {prompt[:80]}")
-                    output = run_subagent(prompt)
-                else:
-                    # 其他工具
-                    handler = TOOL_HANDLERS.get(block.name)
-                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                output = execute_tool(block, state)
 
                 print(f"[Tool] {block.name}: {block.input}")
                 print(f"[Tool Result] {output[:200]}")
@@ -258,10 +376,13 @@ def agent_loop(messages: list):
                 # 记录调用过计划工具
                 if block.name == 'todo':
                     used_todo = True
+                # 记录调用过压缩工具
+                if block.name == "compact":
+                    manual_compact = True
+                    compact_focus = (block.input or {}).get("focus")
 
-
+        # 调用了计划工具
         if used_todo:
-            # 调用了todo工具
             TODO.state.rounds_since_update = 0
         else:
             # 没有调用就计数，然后触发reminder
@@ -271,19 +392,29 @@ def agent_loop(messages: list):
                 # 注意力机制对开头和结尾的信息最敏感，而对中间的信息关注度最低。开头内容更不容易被噪音干扰
                 results.insert(0, {"type": "text", "text": reminder})
 
+        # 调用了压缩工具
+        if manual_compact:
+            print("[manual compact]")
+            messages[:] = compact_history(messages, state, focus=compact_focus)
+
         messages.append({"role": "user", "content": results})
 
 
 if __name__ == "__main__":
+
     history = []
+    compact_state = CompactState()
 
     while True:
-        query = input("\033[36ms01 >> \033[0m")
+        try:
+            query = input("\033[36ms01 >> \033[0m")
+        except (KeyboardInterrupt, EOFError):
+            break
         if query == "exit":
             break
 
         history.append({"role": "user", "content": query})
-        agent_loop(history)
+        agent_loop(history, compact_state)
 
         final_text = extract_text(history[-1]["content"])
         print(final_text)

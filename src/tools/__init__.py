@@ -4,11 +4,13 @@ from .read_file import read_schema, run_read
 from .write_file import write_schema, run_write
 from .todo import todo_schema, TodoManager
 from .skill import SkillRegistry
+from .compact import CompactState
 
 
 
 __all__ = [
     "TodoManager"
     "bash_schema", "edit_schema", "read_schema", "write_schema", "todo_schema",
-    "SkillRegistry"
+    "SkillRegistry",
+    "CompactState"
 ]
