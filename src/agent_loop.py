@@ -1,9 +1,7 @@
 import json
 import os
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
-
 from tools import CompactState
 
 try:
@@ -22,7 +20,6 @@ except ImportError:
 import tools
 from typing import cast
 from anthropic import Anthropic
-from anthropic.types import ThinkingBlock, ToolUseBlock, TextBlock, ContentBlock
 from dotenv import load_dotenv
 
 
@@ -120,14 +117,15 @@ def summarize_history(messages: list) -> str:
         "Be compact but concrete.\n\n"
         f"{conversation}"
     )
+    messages: list = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt}
+        ]
+    }]
     resp = client.messages.create(
         model = MODEL,
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt}
-            ]
-        }],
+        messages = messages,
         max_tokens = 2000
     )
 
@@ -236,7 +234,10 @@ def run_subagent(prompt: str) -> str:
             max_tokens=8000
         )
 
-        sub_message.append({"role": "assistant", "content": resp.content})
+        # 把大模型返回的对象转化为 dict
+        contents = [block.to_dict() for block in resp.content]
+
+        sub_message.append({"role": "assistant", "content": contents})
 
         # 不是工具调用，结束
         if resp.stop_reason != "tool_use":
@@ -244,12 +245,11 @@ def run_subagent(prompt: str) -> str:
 
         # 工具调用
         results = []
-        for block in resp.content:
+        for block in contents:
             if block["type"] == 'tool_use':
                 tool_name = block["name"]
                 tool_use_id = block["id"]
                 tool_argv = block["input"]
-                block = cast(ToolUseBlock, block)  # 重新断言
                 output = execute_tool(block, compact_state)
                 print(f"[Tool] {tool_name}: {tool_argv}")
                 print(f"[Tool Result] {output[:200]}")
@@ -258,7 +258,7 @@ def run_subagent(prompt: str) -> str:
 
         sub_message.append({"role": "user", "content": results})
     # 最后一轮是摘要, LLM返回的content是 [ContentBlock] ，需要用 getattr，取 type
-    return "".join(cast(TextBlock, content).text for content in resp.content if getattr(content, "type") == "text") or "(no summary)"
+    return "".join(block["text"] for block in contents if block["type"] == "text") or "(no summary)"
 
 
 # 统一处理下
