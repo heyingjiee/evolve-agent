@@ -11,10 +11,10 @@ class CompactState:
 
 def persist_large_output(tool_use_id: str, output: str) -> str:
     """ 持久化到文件,返回Preview概览 """
-    if len(output) <= os.getenv("PERSIST_THRESHOLD", 30000):
+    if len(output) <= int(os.getenv("PERSIST_THRESHOLD", "30000")):
         return output
 
-    preview_chars = os.getenv("PREVIEW_CHARS", 2000)
+    preview_chars = int(os.getenv("PREVIEW_CHARS", "2000"))
     tool_result_dir = Path.cwd() / os.getenv("TOOL_RESULTS_DIR", "./task_outputs/tool-results")
 
     tool_result_dir.mkdir(parents=True, exist_ok=True)

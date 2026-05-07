@@ -22,7 +22,7 @@ except ImportError:
 import tools
 from typing import cast
 from anthropic import Anthropic
-from anthropic.types import ThinkingBlock, ToolUseBlock, TextBlock
+from anthropic.types import ThinkingBlock, ToolUseBlock, TextBlock, ContentBlock
 from dotenv import load_dotenv
 
 
@@ -60,28 +60,17 @@ Skills available:
 SUB_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings"
 
 # 任务管理器
-TODO = tools.TodoManager(os.getenv('REMINDER_INTERVAL', 3))
-
-def extract_text(content: list[ThinkingBlock] | str):
-    if not isinstance(content, list):
-        return ""
-    texts = []
-    for block in content:
-        text = getattr(block, "text", None)
-        if text:
-            texts.append(text)
-    return "\n".join(texts)
-
-
+reminder_interval = int(os.getenv('REMINDER_INTERVAL', "3"))
+TODO = tools.TodoManager(reminder_interval)
 
 def collect_tool_result_blocks(messages: list):
     """ 从message中过滤提取工具返回信息 """
     blocks = []
-    for message_index, message  in  enumerate(messages):
-        if message["role"] == "user" and isinstance(message["content"], list):
-            for block_index,block in enumerate(message["content"]):
-                if isinstance(block, dict) and block["type"] == "tool_result":
-                    blocks.append((message_index, block_index, block))
+    for msg in messages:
+        if msg["role"] == "user":
+            for block in msg["content"]:
+                if block["type"] == "tool_result":
+                    blocks.append(block)
     return blocks
 
 def micro_compact(messages: list) -> list:
@@ -91,13 +80,13 @@ def micro_compact(messages: list) -> list:
 
      """
     tool_results = collect_tool_result_blocks(messages)
-    keep_recent_tool_results = os.getenv("KEEP_RECENT_TOOL_RESULTS", 3)
+    keep_recent_tool_results = int(os.getenv("KEEP_RECENT_TOOL_RESULTS", "3"))
     if len(tool_results) < keep_recent_tool_results:
         # 不压缩工具返回结果
         return messages
 
     # 压缩
-    for _, _, block in tool_results[:keep_recent_tool_results]:
+    for block in tool_results[:keep_recent_tool_results]:
         content = block.get("content", "")
         if not isinstance(content, str) or len(content) <= 120:
             continue
@@ -133,7 +122,12 @@ def summarize_history(messages: list) -> str:
     )
     resp = client.messages.create(
         model = MODEL,
-        messages = [{"role": "user", "content": prompt}],
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt}
+            ]
+        }],
         max_tokens = 2000
     )
 
@@ -159,10 +153,16 @@ def compact_history(messages: list, state: CompactState, focus: str | None = Non
 
     state.has_compacted = True
     state.last_summary =summary
-    return [{"role": "user", "content": (
-        "This conversation was compacted so work can continue.\n"
-        f"{summary}"
-    )}]
+    return [{
+        "role": "user",
+        "content": [{
+            "type": "text",
+            "text":  (
+                    "This conversation was compacted so work can continue.\n"
+                    f"{summary}"
+                )
+            }]
+    }]
 
 compact_schema = [{
     "name": "compact",
@@ -221,7 +221,7 @@ def execute_tool(block, state: CompactState) -> str:
 
 # 子Agent
 def run_subagent(prompt: str) -> str:
-    sub_message:list = [{"role": "user", "content": prompt}]
+    sub_message:list = [{"role": "user", "content": [{ "type": "text", "text": prompt}]}]
     compact_state = CompactState()
     # 最大30轮循环
     for _ in range(30):
@@ -258,72 +258,59 @@ def run_subagent(prompt: str) -> str:
 # 统一处理下
 def normalize_messages(messages: list) -> list:
     """
-        # messages = [
-        #   {"role": "user", "content": "你好"},
-        #   {"role": "assistant", "content": [ThinkingBlock(), TextBlock("type": "text", "text": "答案")] } # 返回回答
-        #   {"role": "assistant", "content": [ThinkingBlock(), ThinkingBlock("type": "tool_use", "id": "xxxxx")] } # 返回工具调用
-        # ]
-        # AI返回的每条消息的content不是字符串，是list[ContentBlock]，我们必须转成字符串再传给大模型
-        #
-        # 调用工具的结构：
-        # 1、AI返回的信息 content需要处理
-        # 2、Agent调用工具，返回信息需要处理为：{"role": "user", "type": "tool_result", "tool_use_id":"xxxxx", "content": "工具结果"},
-        #    注意：存在工具没调用成功/没有对应工具的情况，这种也需要补一条tool_result结果，content: "(cancelled)"
-        # 3、user、assistant 需要交通，如果出现连续的同一角色，合并到 content 列表汇总
+        messages = [
+           {"role": "user", "content": [ { "type": "text", "text": "你好"} ]},
+           {
+                "role": "assistant",
+                "content": [
+                    "type": "text", "text": "答案",  # 返回答案
+                    "type": "tool_use", "id": "xxxxx" # 返回工具调用
+                ]
+           },
+           {
+                "role": "user",
+                "content": [
+                    "type": "tool_result", "tool_use_id": "调用id", content": "调用结果"
+
+                ]
+           }
+         ]
+
+        注意：
+         1、Agent调用工具，如果工具没调用成功/没有对应工具的情况，这种也需要补一条tool_result结果，content: "(cancelled)"
+         2、user、assistant 需要交通，如果出现连续的同一角色，合并到 content 列表汇总
+          {
+             "role": "user", content: [
+                "type": "tool_result", "tool_use_id":"xxxxx", "content": "(cancelled)"
+                "type": "tool_result", "tool_use_id":"yyyyy", "content": "工具结果"
+          ]},
     """
-
-    cleaned = []
+    # 给没有调用结果的工具，补一条 tool_resul
+    has_tool_result_ids = set()
     for msg in messages:
-        clean = {"role": msg["role"]}
-        if isinstance(msg.get("content"), str):
-            clean["content"] = msg["content"]
-        elif isinstance(msg.get("content"), list):
-            content = []
+        if msg["role"] == "user":
             for block in msg["content"]:
-                if getattr(block, "type", None):  # sdk 返回的不是字典，而是ContentBlock类型，需要格外处理
-                    temp = {"type": block.type}
-                    for attr in ("id", "name", "input", "text", "thinking"):
-                        temp[attr] = getattr(block, attr, None)
-                    content.append(temp)
-                else:
-                    content.append(block)
+                if block["type"] == "tool_result":
+                    has_tool_result_ids.add(block["id"])
 
-            clean["content"] = content
-        else:
-            clean["content"] = msg.get("content", "")
-        cleaned.append(clean)
-    # Collect existing tool_result IDs
-    existing_results = set()
-    for msg in cleaned:
-        if isinstance(msg.get("content"), list):
+    for msg in messages:
+        if msg["role"] == "assistant":
             for block in msg["content"]:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    existing_results.add(block.get("tool_use_id"))
-    # Find orphaned tool_use blocks and insert placeholder results
-    for msg in cleaned:
-        if msg["role"] != "assistant" or not isinstance(msg.get("content"), list):
-            continue
-        for block in msg["content"]:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "tool_use" and block.get("id") not in existing_results:
-                cleaned.append({"role": "user", "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": block["id"],
-                    "content": "(cancelled)"
-                }]})
-    # Merge consecutive same-role messages
-    if not cleaned:
-        return cleaned
-    merged = [cleaned[0]]
-    for msg in cleaned[1:]:
+                if block["type"] == "tool_use" and block["id"] not in has_tool_result_ids:
+                   messages.append({
+                       "role": "user",
+                       "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": block["id"],
+                            "content": "(cancelled)"
+                        }]
+                   })
+    # 连续message是同一角色要合并
+    merged = [messages[0]]
+    for msg in messages[1:]:
         if msg["role"] == merged[-1]["role"]:
             prev = merged[-1]
-            prev_c = prev["content"] if isinstance(prev["content"], list) \
-                else [{"type": "text", "text": str(prev["content"])}]
-            curr_c = msg["content"] if isinstance(msg["content"], list) \
-                else [{"type": "text", "text": str(msg["content"])}]
-            prev["content"] = prev_c + curr_c
+            prev["content"] = prev["content"] + msg["content"]
         else:
             merged.append(msg)
     return merged
@@ -339,7 +326,7 @@ def agent_loop(messages: list, state: CompactState):
         messages[:] = micro_compact(messages)
 
         # 超过上限压缩上下文
-        if len(str(messages)) > os.getenv("CONTEXT_LIMIT", 50000):
+        if len(str(messages)) > int(os.getenv("CONTEXT_LIMIT", "50000")):
             print("[auto compact conversation history]")
             messages[:] = compact_history(messages, state)
 
@@ -352,26 +339,35 @@ def agent_loop(messages: list, state: CompactState):
             max_tokens=8000
         )
 
-        messages.append({"role": "assistant", "content": resp.content})
+        """
+         resp.content格式: [{TinkingBlock()}, TextBlock(), ToolUseBlock(),...] 是 [ContentBlock] 类型
+         把这些对象，转成字典
+         注意：
+            * type字段是公共的 thinking、text、tool_use 表示其类型
+            * type = tool_use 表示工具调用，其有 name: 工具名，input: 入参 , id：调用id
+            * type = text 表示文本，其有 text: 返回的文本
+        """
+        contents = [block.to_dict() for block in resp.content]
+
+        messages.append({"role": "assistant", "content": contents})
 
         # 不是工具调用，结束
         if resp.stop_reason != "tool_use":
             return
 
         # 工具调用
-        results = []
+        tool_contents = []
         used_todo = False # 存储本轮对话中，是否调用了计划工具
         manual_compact = False # 存储本轮对话中，是否调用了压缩工具
         compact_focus = None # LLM 返回是否压缩上下文
-        for block in resp.content:
+        for block in contents:
             if block.type == "tool_use":
-                block = cast(ToolUseBlock, block)  # 重新断言
                 output = execute_tool(block, state)
 
                 print(f"[Tool] {block.name}: {block.input}")
                 print(f"[Tool Result] {output[:200]}")
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
-                results.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
+                tool_contents.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
 
                 # 记录调用过计划工具
                 if block.name == 'todo':
@@ -390,14 +386,14 @@ def agent_loop(messages: list, state: CompactState):
             reminder = TODO.reminder()
             if reminder:
                 # 注意力机制对开头和结尾的信息最敏感，而对中间的信息关注度最低。开头内容更不容易被噪音干扰
-                results.insert(0, {"type": "text", "text": reminder})
+                tool_contents.insert(0, {"type": "text", "text": reminder})
 
         # 调用了压缩工具
         if manual_compact:
             print("[manual compact]")
             messages[:] = compact_history(messages, state, focus=compact_focus)
 
-        messages.append({"role": "user", "content": results})
+        messages.append({"role": "user", "content": tool_contents})
 
 
 if __name__ == "__main__":
@@ -413,10 +409,16 @@ if __name__ == "__main__":
         if query == "exit":
             break
 
-        history.append({"role": "user", "content": query})
+        history.append({
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": query,
+            }]
+        })
         agent_loop(history, compact_state)
 
-        final_text = extract_text(history[-1]["content"])
+        final_text = "".join([block["text"] for block in history[-1]["content"] if block["type"] == "text"])
         print(final_text)
 
 
@@ -424,3 +426,5 @@ if __name__ == "__main__":
 # plan测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
 
 # subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md
+
+# 压缩read_file、bash返回值、自动压缩上下文： 读取 /Users/heyingjie/Downloads/简历.pdf 分析如何改进来提高简历初筛率
