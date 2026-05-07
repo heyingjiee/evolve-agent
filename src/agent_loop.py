@@ -198,26 +198,29 @@ CHILD_TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.e
 
 # TDOO: 这里是全量的工具，没有做Agent、SubAgent的区别。目前只是在传入的Schema上做了区分，建议后续增加判断
 def execute_tool(block, state: CompactState) -> str:
-    if block.name == 'bash':
-        return tools.run_bash(block.input["command"], block.id)
-    if block.name == 'read_file':
-        return tools.run_read(block.input["path"], block.id, state, block.input.get("limit"))
-    if block.name == 'write_file':
-        return tools.run_write(block.input["path"], block.input["content"])
-    if block.name == 'edit_file':
-        return tools.run_edit(block.input["path"], block.input["old_text"], block.input["new_text"])
-    if block.name == 'todo':
-       return TODO.update(block.input["items"])
-    if block.name == 'task':
-       desc = cast(str, block.input.get("description", "subtask"))
-       prompt = cast(str, block.input.get("prompt", ""))
+    tool_name = block.get("name")
+    argv = block.get("input")
+    tool_use_id = block.get("id")
+    if tool_name == 'bash':
+        return tools.run_bash(argv["command"], tool_use_id)
+    if tool_name == 'read_file':
+        return tools.run_read(argv["path"], tool_use_id, state, argv.get("limit"))
+    if tool_name == 'write_file':
+        return tools.run_write(argv["path"], argv["content"])
+    if tool_name == 'edit_file':
+        return tools.run_edit(argv["path"], argv["old_text"], argv["new_text"])
+    if tool_name == 'todo':
+       return TODO.update(argv["items"])
+    if tool_name == 'task':
+       desc = cast(str, argv.get("description", "subtask"))
+       prompt = cast(str, argv.get("prompt", ""))
        print(f"[Subagent]: {desc}: {prompt[:80]}")
        return run_subagent(prompt)
-    if block.name == 'load_skill':
-       return SKILL_REGISTRY.load_full_text(block.input["name"])
-    if block.name == 'compact':
+    if tool_name == 'load_skill':
+       return SKILL_REGISTRY.load_full_text(argv["name"])
+    if tool_name == 'compact':
        return "Compacting conversation..." # 真正的压缩不在这里，在agent loop
-    return f"Unknown tool: {block.name}"
+    return f"Unknown tool: {tool_name}"
 
 # 子Agent
 def run_subagent(prompt: str) -> str:
@@ -242,13 +245,16 @@ def run_subagent(prompt: str) -> str:
         # 工具调用
         results = []
         for block in resp.content:
-            if block.type == 'tool_use':
+            if block["type"] == 'tool_use':
+                tool_name = block["name"]
+                tool_use_id = block["id"]
+                tool_argv = block["input"]
                 block = cast(ToolUseBlock, block)  # 重新断言
                 output = execute_tool(block, compact_state)
-                print(f"[Tool] {block.name}: {block.input}")
+                print(f"[Tool] {tool_name}: {tool_argv}")
                 print(f"[Tool Result] {output[:200]}")
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
-                results.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
+                results.append({"type": "tool_result", "content": output, "tool_use_id": tool_use_id})
 
         sub_message.append({"role": "user", "content": results})
     # 最后一轮是摘要, LLM返回的content是 [ContentBlock] ，需要用 getattr，取 type
@@ -291,7 +297,7 @@ def normalize_messages(messages: list) -> list:
         if msg["role"] == "user":
             for block in msg["content"]:
                 if block["type"] == "tool_result":
-                    has_tool_result_ids.add(block["id"])
+                    has_tool_result_ids.add(block["tool_use_id"])
 
     for msg in messages:
         if msg["role"] == "assistant":
@@ -343,7 +349,7 @@ def agent_loop(messages: list, state: CompactState):
          resp.content格式: [{TinkingBlock()}, TextBlock(), ToolUseBlock(),...] 是 [ContentBlock] 类型
          把这些对象，转成字典
          注意：
-            * type字段是公共的 thinking、text、tool_use 表示其类型
+            * type字段是公共的 thinking、text、tool_use 表示其类型，block["type"],其他字段建议get获取
             * type = tool_use 表示工具调用，其有 name: 工具名，input: 入参 , id：调用id
             * type = text 表示文本，其有 text: 返回的文本
         """
@@ -361,21 +367,21 @@ def agent_loop(messages: list, state: CompactState):
         manual_compact = False # 存储本轮对话中，是否调用了压缩工具
         compact_focus = None # LLM 返回是否压缩上下文
         for block in contents:
-            if block.type == "tool_use":
+            if block["type"] == "tool_use":
+                tool_name = block["name"]
                 output = execute_tool(block, state)
-
-                print(f"[Tool] {block.name}: {block.input}")
+                print(f"[Tool] {tool_name}: {block["input"]}")
                 print(f"[Tool Result] {output[:200]}")
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
-                tool_contents.append({"type": "tool_result", "content": output, "tool_use_id": block.id})
+                tool_contents.append({"type": "tool_result", "content": output, "tool_use_id": block["id"]})
 
                 # 记录调用过计划工具
-                if block.name == 'todo':
+                if tool_name == 'todo':
                     used_todo = True
                 # 记录调用过压缩工具
-                if block.name == "compact":
+                if tool_name == "compact":
                     manual_compact = True
-                    compact_focus = (block.input or {}).get("focus")
+                    compact_focus = (block["input"] or {}).get("focus")
 
         # 调用了计划工具
         if used_todo:
@@ -423,7 +429,7 @@ if __name__ == "__main__":
 
 
 
-# plan测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
+# 计划测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
 
 # subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md
 

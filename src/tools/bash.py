@@ -20,11 +20,11 @@ def run_bash(command: str, tool_use_id: str) -> str:
         )
     except subprocess.TimeoutExpired:
         return "Error: Timeout"
-    except (FileNotFoundError, OSError) as e:
+    except Exception as e:
         return f"Error: {e}"
 
     output = (result.stdout + result.stderr).strip()
-    return persist_large_output(output if output else "(no output)", tool_use_id)
+    return persist_large_output(tool_use_id, output if output else "(no output)")
 
 bash_schema =  {
     "name": "bash",
