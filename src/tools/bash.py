@@ -26,6 +26,7 @@ def run_bash(command: str, tool_use_id: str) -> str:
     output = (result.stdout + result.stderr).strip()
     return persist_large_output(tool_use_id, output if output else "(no output)")
 
+# schema
 bash_schema =  {
     "name": "bash",
     "description": "Run a shell command in the current workspace",
@@ -35,3 +36,4 @@ bash_schema =  {
         "required": ["command"]
     }
 }
+
