@@ -1,7 +1,7 @@
-from pathlib import Path
-
+from tools.compact import persist_large_output
 from shared.utils import safe_path
-from tools.compact import persist_large_output, CompactState
+from tools.compact import CompactState
+from config import global_config
 
 
 def run_read(path: str, tool_use_id: str, state: CompactState, limit: int = None) -> str:
@@ -20,7 +20,7 @@ def run_read(path: str, tool_use_id: str, state: CompactState, limit: int = None
         state.recent_files = state.recent_files[:-5]
     # 读取文件
     try:
-        text = safe_path(path, work_dir = Path.cwd()).read_text()
+        text = safe_path(path, work_dir = global_config.WORKDIR).read_text()
         lines = text.splitlines()
         if limit and limit < len(lines):
             lines = lines[:limit] + [f"...({len(lines) - limit} more lines)"]

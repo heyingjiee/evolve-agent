@@ -1,12 +1,11 @@
-from pathlib import Path
-
+from config import global_config
 from shared.utils import safe_path
 
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
     """ 编辑文件"""
     try:
-        fp = safe_path(path, work_dir = Path.cwd())
+        fp = safe_path(path, work_dir = global_config.WORKDIR)
         content = fp.read_text()
         if old_text not in content:
             return f"Error: Text not found in {path}"

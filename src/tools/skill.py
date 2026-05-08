@@ -1,6 +1,8 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from config import global_config
+
 
 @dataclass
 class SkillManifest:
@@ -56,12 +58,29 @@ class SkillRegistry:
         return "\n".join(lines)
 
     def load_full_text(self, name: str) -> str:
-        document = self.documents[name]
-        if not document:
+        if name not in self.documents:
             known = ",".join(sorted(self.documents)) or '(none)'
             return f"Error: Unknown skill '{name}'. Available skill {known}"
+        document = self.documents[name]
         return (
             f"<skill name=\"{document.manifest.name}\">\n"
             f"{document.body}\n"
             "</skill>"
         )
+
+
+# Skill目录
+SKILLS_DIR = global_config.WORKDIR / "src/skills"
+
+# Skill仓库单例
+SKILL_REGISTRY = SkillRegistry(SKILLS_DIR)
+
+skill_schema = {
+    "name": "load_skill",
+    "description": "Load the full body of a named skill into the current context.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    },
+}

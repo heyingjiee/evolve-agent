@@ -17,7 +17,7 @@ class PlanningState:
 
 
 # 计划管理器
-class TodoManager:
+class PlanManager:
     def __init__(self, reminder_interval):
         self.state = PlanningState()
         self.reminder_interval =  reminder_interval
@@ -82,9 +82,8 @@ class TodoManager:
     def note_round_without_update(self) -> None:
         self.state.rounds_since_update += 1
 
-
-todo_schema = {
-    "name": "todo",
+plan_schema = {
+    "name": "plan",
     "description": "Rewrite the current session plan for multi-step work",
     "input_schema": {
         "type": "object",

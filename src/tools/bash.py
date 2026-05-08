@@ -1,7 +1,6 @@
 import subprocess
-import os
-
 from tools.compact import persist_large_output
+from config import global_config
 
 
 def run_bash(command: str, tool_use_id: str) -> str:
@@ -13,7 +12,7 @@ def run_bash(command: str, tool_use_id: str) -> str:
         result = subprocess.run(
             command,
             shell=True,
-            cwd=os.getcwd(),
+            cwd=global_config.WORKDIR,
             capture_output=True,
             text=True,
             timeout=120,
