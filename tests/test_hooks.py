@@ -1,9 +1,6 @@
 import json
-import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from hooks import HookManager, Context
 
@@ -106,7 +103,7 @@ class TestRunHook:
             context: Context = {"tool_name": "Write", "tool_input": "test input"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_called_once()
 
@@ -129,7 +126,7 @@ class TestRunHook:
             context: Context = {"tool_name": "Write", "tool_input": "Write"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_not_called()
 
@@ -152,7 +149,7 @@ class TestRunHook:
             context: Context = {"tool_name": "Bash", "tool_input": "Bash"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_called_once()
 
@@ -254,7 +251,7 @@ class TestHookResultProcessing:
                     stdout=json.dumps({"updatedInput": "modified input"}),
                     stderr=""
                 )
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 assert context["tool_input"] == "modified input"
 
@@ -396,7 +393,7 @@ class TestToolOutputContext:
             }
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PostToolUse", context)
+                manager.run_hook("PostToolUse", context)
 
                 call_kwargs = mock_run.call_args.kwargs
                 env = call_kwargs["env"]
@@ -425,6 +422,6 @@ class TestSessionStartHook:
             context: Context = {"tool_name": "SessionStart"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("SessionStart", context)
+                manager.run_hook("SessionStart", context)
 
                 mock_run.assert_called_once()

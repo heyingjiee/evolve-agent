@@ -1,31 +1,30 @@
-import json
+from dotenv import load_dotenv
 
+# 加载环境变量 - 必须在其他导入之前
+load_dotenv(override=True)
+
+import json
+import os
+from pathlib import Path
+
+import tools
+from agents import main_agent
+from config import global_config
 from hooks import HookManager
+from permission.manager import MODES, PermissionManager
+from tools import memory_mgr
 
 try:
     import readline
 
     # #143 UTF-8 backspace fix for macOS libedit
-    readline.parse_and_bind('set bind-tty-special-chars off')
-    readline.parse_and_bind('set input-meta on')
-    readline.parse_and_bind('set output-meta on')
-    readline.parse_and_bind('set convert-meta off')
+    readline.parse_and_bind("set bind-tty-special-chars off")
+    readline.parse_and_bind("set input-meta on")
+    readline.parse_and_bind("set output-meta on")
+    readline.parse_and_bind("set convert-meta off")
     # readline.parse_and_bind('set enable-meta-keybindings on')
 except ImportError:
     pass
-
-# 加载环境变量后
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
-# 加载环境变量后，再执行
-import os
-from pathlib import Path
-from config import global_config
-from agents import main_agent
-from permission.manager import PermissionManager, MODES
-import tools
 
 if os.getenv("ANTHROPIC_BASE_URL"):
     os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
@@ -37,9 +36,9 @@ CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 
 # TODO 加入到入口，没有就input要求用户确认，确认后新建配置文件，取消直接结束
 def is_workspace_trusted(workspace: Path) -> bool:
-    """ 检查是否是受信人工作区 """
+    """检查是否是受信人工作区"""
     ws = workspace or global_config.WORKDIR
-    setting_path = (ws / ".evolve/setting.json")
+    setting_path = ws / ".evolve/setting.json"
     if not setting_path.exists():
         return False
     else:
@@ -61,25 +60,29 @@ def main():
                 setting_file.parent.mkdir(parents=True, exist_ok=True)
             # 设置配置
             setting_config["trust"] = "true"
-            setting_file.write_text(json.dumps(setting_config, indent=4, ensure_ascii=False))
+            setting_file.write_text(
+                json.dumps(setting_config, indent=4, ensure_ascii=False)
+            )
         else:
             return
 
     # 对话历史
     history = []
-    # 压缩历史
+    # 压缩状态
     compact_state = tools.CompactState()
     # 钩子
     hooks = HookManager()
+    # 加载 .evolve/.memory 下的记忆文件
+    memory_mgr.load_all()
 
     # 启动设置权限模式
-    print("Permission modes: default,plan,auto")
-    mode_input = input("Mode (default): ").strip().lower() or "default"
+    mode_input = input("choose mode (default/plan/auto): ").strip().lower() or "default"
+    print(f"[Using {mode_input} mode]")
     perms = PermissionManager(mode=mode_input)
 
     while True:
         try:
-            query = input("\033[36ms01 >> \033[0m")
+            query = input(">")
         except (KeyboardInterrupt, EOFError):
             break
 
@@ -94,7 +97,7 @@ def main():
                 perms.mode = parts[1]
                 print(f"[Switched to {parts[1]} mode]")
             else:
-                print(f"Usage: /mode <{"|".join(MODES)}>")
+                print(f"Usage: /mode <{'|'.join(MODES)}>")
             continue
 
         # /rules 展示当前规则集合
@@ -103,17 +106,36 @@ def main():
                 print(f"{index}: {rule}")
             continue
 
-        history.append({
-            "role": "user",
-            "content": [{
-                "type": "text",
-                "text": query,
-            }]
-        })
+        # /memories 列出当前记忆文件
+        if query == "/memories":
+            if memory_mgr.memories:
+                for mem in memory_mgr.memories.values():
+                    print(f"  [{mem['type']}] {mem['name']} {mem['description']}")
+            else:
+                print("  (no memories)")
+            continue
+
+        history.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": query,
+                    }
+                ],
+            }
+        )
         main_agent.agent_loop(history, state=compact_state, perms=perms, hooks=hooks)
 
-        final_text = "".join([block["text"] for block in history[-1]["content"] if block["type"] == "text"])
-        print(final_text)
+        final_text = "".join(
+            [
+                block["text"]
+                for block in history[-1]["content"]
+                if block["type"] == "text"
+            ]
+        )
+        print(f"{'-' * 50}\n{final_text}\n{'-' * 50}")
 
 
 if __name__ == "__main__":

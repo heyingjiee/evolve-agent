@@ -8,11 +8,7 @@ Hook 端到端测试 - 测试 uv run ./src/main.py 的 hook 命中情况
 """
 
 import json
-import os
-import sys
-import io
-from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -70,7 +66,7 @@ class TestHookE2E:
             context: Context = {"tool_name": "Bash", "tool_input": "echo hello"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_called_once()
                 # mock_run.call_args 是一个 mock.call_args tuple (args, kwargs)
@@ -90,7 +86,7 @@ class TestHookE2E:
             context: Context = {"tool_name": "Read", "tool_input": "Read"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PreToolUse", context)
+                manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_not_called()
 
@@ -109,7 +105,7 @@ class TestHookE2E:
             }
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PostToolUse", context)
+                manager.run_hook("PostToolUse", context)
 
                 mock_run.assert_called_once()
                 call_kwargs = mock_run.call_args.kwargs
@@ -126,7 +122,7 @@ class TestHookE2E:
             context: Context = {"tool_name": "SessionStart"}
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("SessionStart", context)
+                manager.run_hook("SessionStart", context)
 
                 mock_run.assert_called_once()
 
@@ -277,6 +273,6 @@ class TestRealHookScenarios:
             }
             with patch("hooks.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-                result = manager.run_hook("PostToolUse", context)
+                manager.run_hook("PostToolUse", context)
 
                 mock_run.assert_called_once()

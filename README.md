@@ -1,4 +1,19 @@
-# cc-learn
+# evolve
 
-## tool
-支持 rea_file、write_file、edit_file 等工具
+## 安装依赖
+
+```shell
+uv sync
+```
+
+## 运行
+
+```shell
+uv run ./src/main.py
+```
+
+## lint
+```shell
+ruff check . --fix
+```
+

@@ -1,6 +1,4 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 
 class TestExecuteTool:
@@ -19,7 +17,7 @@ class TestExecuteTool:
                 "id": "tool_1"
             }
             state = CompactState()
-            result = execute_tool(block, state)
+            execute_tool(block, state)
 
             mock_tools.run_bash.assert_called_once_with("echo hello", "tool_1")
 
@@ -39,7 +37,7 @@ class TestExecuteTool:
                 "id": "tool_2"
             }
             state = CompactState()
-            result = execute_tool(block, state)
+            execute_tool(block, state)
 
             mock_tools.run_read.assert_called_once()
 
@@ -56,7 +54,7 @@ class TestExecuteTool:
                 "id": "tool_3"
             }
             state = CompactState()
-            result = execute_tool(block, state)
+            execute_tool(block, state)
 
             mock_tools.run_write.assert_called_once_with("/tmp/test.txt", "hello")
 
@@ -73,7 +71,7 @@ class TestExecuteTool:
                 "id": "tool_4"
             }
             state = CompactState()
-            result = execute_tool(block, state)
+            execute_tool(block, state)
 
             mock_tools.run_edit.assert_called_once_with("/tmp/test.txt", "a", "b")
 
@@ -234,7 +232,7 @@ class TestRunTaskSubagent:
             with patch("agents.task.execute_tool") as mock_exec:
                 mock_exec.return_value = "result"
 
-                result = run_task_subagent("任务")
+                run_task_subagent("任务")
 
                 assert mock_config.client.messages.create.call_count == 30
 

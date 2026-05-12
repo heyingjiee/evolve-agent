@@ -1,7 +1,8 @@
 import json
 import os
 import subprocess
-from typing import TypedDict, NotRequired
+from typing import NotRequired, TypedDict
+
 from config import global_config
 
 # hook执行超时时间
@@ -42,6 +43,7 @@ class HookManager:
                     "command": "git add ."
                   }
                 ],
+                # TODO 这个需要实现
                 "SessionStart": [
                   {
                     "matcher": "*",
