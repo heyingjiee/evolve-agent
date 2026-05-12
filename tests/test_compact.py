@@ -1,6 +1,4 @@
-import pytest
 import os
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -36,7 +34,7 @@ class TestPersistLargeOutput:
             assert len(result) < len(large_output)
 
             # 验证文件被写入
-            stored_file = tmp_path / "tool_outputs" / "tool-results" / "tool_big.txt"
+            stored_file = tmp_path / ".compact/tool-outputs/tool_big.txt"
             assert stored_file.exists()
             assert stored_file.read_text() == large_output
 
@@ -130,7 +128,7 @@ class TestMicroCompact:
         # 创建超过 KEEP_RECENT_TOOL_RESULTS 的工具结果
         messages = [
             {"role": "user", "content": [
-                {"type": "tool_result", "content": "tool result 0", "tool_use_id": "t0"}
+                {"type": "tool_result", "content": "tool result 0"*100, "tool_use_id": "t0"}
             ]},
             {"role": "user", "content": [
                 {"type": "tool_result", "content": "tool result 1", "tool_use_id": "t1"}
@@ -150,7 +148,7 @@ class TestMicroCompact:
             result = micro_compact(messages)
 
             # 前面的长内容应该被压缩
-            assert "[Earlier tool result compacted" in result[0]["content"][0]["content"]
+            assert "[Earlier tool result compacted. Re-run the tool if you need full detail.]" == result[0]["content"][0]["content"]
 
     def test_short_tool_results_not_compacted(self):
         """测试短内容工具结果不被压缩"""
@@ -237,10 +235,9 @@ class TestCompactHistory:
                 mock_summarize.return_value = "Conversation summary"
 
                 state = CompactState()
-                result = compact_history(messages, state)
-
+                compact_history(messages, state)
                 assert state.has_compacted is True
-                assert state.last_summary == "Conversation summary"
+                assert state.last_summary == "Conversation summary\n\nRecent files to reopen if needed:\n"
 
     def test_compact_history_with_focus(self):
         """测试带 focus 参数的压缩"""
@@ -368,8 +365,8 @@ class TestCompactState:
     def test_recent_files_tracking(self):
         """测试 recent_files 追踪"""
         from tools.compact import CompactState
-
         state = CompactState()
+
         state.recent_files.append("file1.txt")
         state.recent_files.append("file2.txt")
 

@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "echo 'PRE-BASH: {tool_name}'"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "command": "echo 'POST-READ: {tool_output}'"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "command": "echo 'SESSION-START'"
+      }
+    ]
+  }
+}

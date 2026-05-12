@@ -8,9 +8,9 @@ from config import global_config
 
 @dataclass
 class CompactState:
-    has_compacted: bool = False,  # 是否被压缩过
-    last_summary: str = "",
-    recent_files: list[str] = field(default_factory=list),
+    has_compacted: bool = False  # history是否被压缩过
+    last_summary: str = ""  # history压缩的摘要
+    recent_files: list[str] = field(default_factory=list)  # read_file工具最近读入文件的路径
 
 
 def collect_tool_result_blocks(messages: list):
@@ -23,11 +23,10 @@ def collect_tool_result_blocks(messages: list):
                     blocks.append(block)
     return blocks
 
+
 def micro_compact(messages: list) -> list:
     """
         压缩工具返回内容
-        1. 提取工具返回的信息 collect_tool_result_blocks
-
      """
     tool_results = collect_tool_result_blocks(messages)
     keep_recent_tool_results = int(os.getenv("KEEP_RECENT_TOOL_RESULTS", "3"))
@@ -36,28 +35,30 @@ def micro_compact(messages: list) -> list:
         return messages
 
     # 压缩
-    for block in tool_results[:keep_recent_tool_results]:
+    for block in tool_results[:-keep_recent_tool_results]:
         content = block.get("content", "")
         if not isinstance(content, str) or len(content) <= 120:
             continue
         block["content"] = "[Earlier tool result compacted. Re-run the tool if you need full detail.]"
     return messages
 
+
 def write_transcript(messages: list) -> Path:
     """ 把message信息写入文件，返回文件路径 """
-    transcript_dir = global_config.WORKDIR / os.getenv("TRANSCRIPT_DIR", "./transcripts")
+    transcript_dir = global_config.WORKDIR / os.getenv("TRANSCRIPT_DIR", ".compact/transcripts")
     transcript_dir.mkdir(parents=True, exist_ok=True)  # 保证目录一定有，后面才能写入
     store_path = transcript_dir / f"transcript_{int(time.time())}.json"
 
     # 没有一口气写入 messages，是出于内存考虑，防止内存溢出
     with store_path.open("w") as handler:
         for message in messages:
-            handler.write(json.dumps(message, default=str))
+            handler.write(json.dumps(message, default=str, ensure_ascii=False))
     return store_path
+
 
 def summarize_history(messages: list) -> str:
     """调用大模型总结摘要"""
-    conversation = json.dumps(messages, default=str)
+    conversation = json.dumps(messages, default=str, ensure_ascii=False)
     prompt = (
         "Summarize this coding-agent conversation so work can continue.\n"
         "Preserve:\n"
@@ -83,6 +84,7 @@ def summarize_history(messages: list) -> str:
 
     return resp.content[0].text.strip()
 
+
 def compact_history(messages: list, state: CompactState, focus: str | None = None, ):
     """
         压缩历史记录
@@ -102,17 +104,18 @@ def compact_history(messages: list, state: CompactState, focus: str | None = Non
         summary += f"\n\nRecent files to reopen if needed:\n{recent_lines}"
 
     state.has_compacted = True
-    state.last_summary =summary
+    state.last_summary = summary
     return [{
         "role": "user",
         "content": [{
             "type": "text",
-            "text":  (
-                    "This conversation was compacted so work can continue.\n"
-                    f"{summary}"
-                )
-            }]
+            "text": (
+                "This conversation was compacted so work can continue.\n"
+                f"{summary}"
+            )
+        }]
     }]
+
 
 def persist_large_output(tool_use_id: str, output: str) -> str:
     """ 持久化到文件,返回Preview概览 """
@@ -120,7 +123,7 @@ def persist_large_output(tool_use_id: str, output: str) -> str:
         return output
 
     preview_chars = int(os.getenv("PREVIEW_CHARS", "2000"))
-    tool_result_dir = global_config.WORKDIR / os.getenv("TOOL_RESULTS_DIR", "./task_outputs/tool-results")
+    tool_result_dir = global_config.WORKDIR / os.getenv("TOOL_RESULTS_DIR", ".compact/tool-outputs")
 
     tool_result_dir.mkdir(parents=True, exist_ok=True)
     stored_path = tool_result_dir / f"{tool_use_id}.txt"
@@ -135,6 +138,7 @@ def persist_large_output(tool_use_id: str, output: str) -> str:
         f"{preview}\n"
         "</persisted-output>"
     )
+
 
 compact_schema = {
     "name": "compact",

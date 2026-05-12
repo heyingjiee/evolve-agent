@@ -2,14 +2,13 @@ import os
 from typing import cast
 import tools
 from config import global_config
+from hooks import HookManager, Context
 from permission.manager import PermissionManager
 from agents.task import task_schema, run_task_subagent
-
 
 # 任务管理器
 reminder_interval = int(os.getenv('REMINDER_INTERVAL', "3"))
 planManager = tools.PlanManager(reminder_interval)
-
 
 # 系统提示词
 SYSTEM = f"""You are a coding agent at {global_config.WORKDIR}.
@@ -19,7 +18,9 @@ Skills available:
 """
 
 # 工具Schema
-TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema, tools.plan_schema, tools.skill_schema, task_schema, tools.compact_schema]
+TOOLS = [tools.bash_schema, tools.read_schema, tools.write_schema, tools.edit_schema, tools.plan_schema,
+         tools.skill_schema, task_schema, tools.compact_schema]
+
 
 # 调用工具
 def execute_tool(block, state: tools.CompactState) -> str:
@@ -35,17 +36,18 @@ def execute_tool(block, state: tools.CompactState) -> str:
     if tool_name == 'edit_file':
         return tools.run_edit(argv["path"], argv["old_text"], argv["new_text"])
     if tool_name == 'plan':
-       return planManager.update(argv["items"])
+        return planManager.update(argv["items"])
     if tool_name == 'task':
-       desc = cast(str, argv.get("description", "subtask"))
-       prompt = cast(str, argv.get("prompt", ""))
-       print(f"[Subagent]: {desc}: {prompt[:80]}")
-       return run_task_subagent(prompt)
+        desc = cast(str, argv.get("description", "subtask"))
+        prompt = cast(str, argv.get("prompt", ""))
+        print(f"[Subagent]: {desc}: {prompt[:80]}")
+        return run_task_subagent(prompt)
     if tool_name == 'load_skill':
-       return tools.SKILL_REGISTRY.load_full_text(argv["name"])
+        return tools.SKILL_REGISTRY.load_full_text(argv["name"])
     if tool_name == 'compact':
-       return "Compacting conversation..." # 真正的压缩不在这里，在agent loop
+        return "Compacting conversation..."  # 真正的压缩不在这里，在agent loop
     return f"Unknown tool: {tool_name}"
+
 
 # 统一处理下
 def normalize_messages(messages: list) -> list:
@@ -89,14 +91,14 @@ def normalize_messages(messages: list) -> list:
         if msg["role"] == "assistant":
             for block in msg["content"]:
                 if block["type"] == "tool_use" and block["id"] not in has_tool_result_ids:
-                   messages.append({
-                       "role": "user",
-                       "content": [{
+                    messages.append({
+                        "role": "user",
+                        "content": [{
                             "type": "tool_result",
                             "tool_use_id": block["id"],
                             "content": "(cancelled)"
                         }]
-                   })
+                    })
     # 连续message是同一角色要合并
     merged = [messages[0]]
     for msg in messages[1:]:
@@ -107,12 +109,13 @@ def normalize_messages(messages: list) -> list:
             merged.append(msg)
     return merged
 
+
 # 核心Agent Loop
-def agent_loop(messages: list, state: tools.CompactState, perms: PermissionManager):
+def agent_loop(messages: list, *, state: tools.CompactState, perms: PermissionManager, hooks: HookManager):
     """ 单词循环， True会进入下一轮循环 ，False结束循环"""
     while True:
         # 规范化参数
-        messages[:] = normalize_messages(messages) # 这是原地修改
+        messages[:] = normalize_messages(messages)  # 这是原地修改
 
         # 压缩工具返回结果
         messages[:] = tools.micro_compact(messages)
@@ -149,32 +152,62 @@ def agent_loop(messages: list, state: tools.CompactState, perms: PermissionManag
 
         # 工具调用
         tool_contents = []
-        used_todo = False # 存储本轮对话中，是否调用了计划工具
-        manual_compact = False # 存储本轮对话中，是否调用了压缩工具
-        compact_focus = None # LLM 返回是否压缩上下文
+        used_todo = False  # 存储本轮对话中，是否调用了计划工具
+        manual_compact = False  # 存储本轮对话中，是否调用了压缩工具
+        compact_focus = None  # LLM 返回是否压缩上下文
 
         for block in contents:
             if block["type"] == "tool_use":
                 tool_name = block["name"]
                 tool_input = block["input"]
+
+                # 注入 Hook 的上下文
+                ctx: Context = {"tool_name": tool_name, "tool_input": tool_input}
                 print(f"[Tool] {tool_name}: {tool_input}")
+                # TODO 这里之后需要调整下，关于 鉴权、Hook先后的逻辑，Hook应该有强大的能力去控制默认鉴权逻辑
                 # 权限检查
                 behavior, reason = perms.check(tool_name, tool_input).values()
                 if behavior == "deny":
                     # 拒绝
                     output = f"Permission denied: {reason}"
                     print(f"  [DENIED] {block.name}: {reason}")
-                elif behavior == "ask":
-                    # 询问用户
-                    if perms.ask_user(tool_name, tool_input):
-                        output = execute_tool(block, state)  # 执行工具
-                        print(f"[Tool Result]\n{output[:200]}")
-                    else:
-                        output = f"Permission denied by user for: {tool_name}"
-                        print(f"  [USER DENIED] {block.name}")
+                elif behavior == "ask" and not perms.ask_user(tool_name, tool_input):
+                    # 询问用户，用户拒绝
+                    output = f"Permission denied by user for: {tool_name}"
+                    print(f"  [USER DENIED] {block.name}")
                 else:
-                    # 允许
-                    output = execute_tool(block, state) # 执行工具
+                    # 允许 / 询问用户同意
+                    # 执行前钩子
+                    pre_hook_results = hooks.run_hook("PreToolUse", ctx)
+                    for msg in pre_hook_results.get("messages", []):
+                        tool_contents.append({
+                            "type": "tool_result",
+                            "tool_use_id": block["id"],
+                            "content": f"[Hook message]: {msg}",
+                        })
+                    if pre_hook_results.get("blocked"):
+                        reason = pre_hook_results.get("block_reason", "Blocked by hook")
+                        output = f"Tool blocked by PreToolUse hook: {reason}"
+                        tool_contents.append({
+                            "type": "tool_result",
+                            "tool_use_id": block["id"],
+                            "content": output,
+                        })
+                        continue
+
+                    output = execute_tool(block, state)
+
+                    # 执行后钩子
+                    ctx["tool_output"] = output
+                    post_hook_result = hooks.run_hook("PostToolUse", ctx)
+                    for msg in post_hook_result.get("messages", []):
+                        output += f"\n[Hook note]: {msg}"
+                    tool_contents.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": str(output),  # 这里覆盖了执行结果
+                    })
+
                     print(f"[Tool Result]\n{output[:200]}")
 
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的

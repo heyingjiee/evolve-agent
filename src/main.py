@@ -1,6 +1,10 @@
+import json
+
+from hooks import HookManager
 
 try:
     import readline
+
     # #143 UTF-8 backspace fix for macOS libedit
     readline.parse_and_bind('set bind-tty-special-chars off')
     readline.parse_and_bind('set input-meta on')
@@ -10,9 +14,9 @@ try:
 except ImportError:
     pass
 
-
 # 加载环境变量后
 from dotenv import load_dotenv
+
 load_dotenv(override=True)
 
 # 加载环境变量后，再执行
@@ -35,14 +39,38 @@ CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 def is_workspace_trusted(workspace: Path) -> bool:
     """ 检查是否是受信人工作区 """
     ws = workspace or global_config.WORKDIR
-    return (ws / ".claude/.claude_trusted").exists()
+    setting_path = (ws / ".evolve/setting.json")
+    if not setting_path.exists():
+        return False
+    else:
+        return json.loads(setting_path.read_text()).get("trust", False)
 
 
-if __name__ == "__main__":
+def main():
+    # 先询问是否信任工作区，信任放行，否则退出
+    if not is_workspace_trusted(global_config.WORKDIR):
+        is_trusted = input("> do you trust the current workspace? Allow? (y/n):")
+        if is_trusted == "y":
+            setting_file = global_config.WORKDIR / ".evolve/setting.json"
+            setting_config = {}
+            if setting_file.exists():
+                # 存在读取历史配置
+                setting_config = json.loads(setting_file.read_text())
+            else:
+                # 不存在保证父级目录存在，后面write才不会报错
+                setting_file.parent.mkdir(parents=True, exist_ok=True)
+            # 设置配置
+            setting_config["trust"] = "true"
+            setting_file.write_text(json.dumps(setting_config, indent=4, ensure_ascii=False))
+        else:
+            return
+
     # 对话历史
     history = []
     # 压缩历史
     compact_state = tools.CompactState()
+    # 钩子
+    hooks = HookManager()
 
     # 启动设置权限模式
     print("Permission modes: default,plan,auto")
@@ -56,7 +84,7 @@ if __name__ == "__main__":
             break
 
         # 退出
-        if query.strip().lower() in ("exit", "q") :
+        if query.strip().lower() in ("exit", "q"):
             break
 
         # /mode <mode> 切换权限模式
@@ -75,7 +103,6 @@ if __name__ == "__main__":
                 print(f"{index}: {rule}")
             continue
 
-
         history.append({
             "role": "user",
             "content": [{
@@ -83,16 +110,17 @@ if __name__ == "__main__":
                 "text": query,
             }]
         })
-        main_agent.agent_loop(history, compact_state, perms)
+        main_agent.agent_loop(history, state=compact_state, perms=perms, hooks=hooks)
 
         final_text = "".join([block["text"] for block in history[-1]["content"] if block["type"] == "text"])
         print(final_text)
 
 
+if __name__ == "__main__":
+    main()
 
 # 计划测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
 
 # subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md
 
 # 压缩read_file、bash返回值、自动压缩上下文： 读取 /Users/heyingjie/Downloads/简历.pdf 分析如何改进来提高简历初筛率
-
