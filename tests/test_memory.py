@@ -287,13 +287,11 @@ class TestMemorySchema:
         """测试 schema 结构正确"""
         from tools.memory import memory_schema
 
-        assert len(memory_schema) == 1
-        tool = memory_schema[0]
-        assert tool["name"] == "save_memory"
-        assert "input_schema" in tool
-        assert tool["input_schema"]["type"] == "object"
+        assert memory_schema["name"] == "save_memory"
+        assert "input_schema" in memory_schema
+        assert memory_schema["input_schema"]["type"] == "object"
 
-        props = tool["input_schema"]["properties"]
+        props = memory_schema["input_schema"]["properties"]
         assert "name" in props
         assert "description" in props
         assert "type" in props
@@ -303,7 +301,7 @@ class TestMemorySchema:
         assert props["type"]["enum"] == list(MEMORY_TYPES)
 
         # 验证 required
-        assert set(tool["input_schema"]["required"]) == {"name", "description", "type", "content"}
+        assert set(memory_schema["input_schema"]["required"]) == {"name", "description", "type", "content"}
 
 
 class TestMemoryTypes:

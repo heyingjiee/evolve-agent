@@ -31,7 +31,7 @@ class SkillRegistry:
            description = meta.get("description", "No description")
            manifest = SkillManifest(name, description, path)
            self.documents[name] = SkillDocument(manifest, body)
-       print(f"available skills: {",".join(self.documents.keys())}")
+       print(f"\n[available skills: {",".join(self.documents.keys())}]")
 
 
     def _parse_frontmatter(self, text: str) -> tuple[dict, str]:

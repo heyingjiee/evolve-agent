@@ -45,14 +45,14 @@ def micro_compact(messages: list) -> list:
 
 def write_transcript(messages: list) -> Path:
     """ 把message信息写入文件，返回文件路径 """
-    transcript_dir = global_config.WORKDIR / os.getenv("TRANSCRIPT_DIR", ".compact/transcripts")
+    transcript_dir = global_config.WORKDIR / os.getenv("TRANSCRIPT_DIR", ".evolve/compact/transcripts")
     transcript_dir.mkdir(parents=True, exist_ok=True)  # 保证目录一定有，后面才能写入
     store_path = transcript_dir / f"transcript_{int(time.time())}.json"
 
     # 没有一口气写入 messages，是出于内存考虑，防止内存溢出
     with store_path.open("w") as handler:
         for message in messages:
-            handler.write(json.dumps(message, default=str, ensure_ascii=False))
+            handler.write(json.dumps(message, default=str, ensure_ascii=False) + "\n")
     return store_path
 
 
@@ -82,7 +82,7 @@ def summarize_history(messages: list) -> str:
         max_tokens=2000
     )
 
-    return resp.content[0].text.strip()
+    return resp.content[-1].text.strip()
 
 
 def compact_history(messages: list, state: CompactState, focus: str | None = None, ):
@@ -123,7 +123,7 @@ def persist_large_output(tool_use_id: str, output: str) -> str:
         return output
 
     preview_chars = int(os.getenv("PREVIEW_CHARS", "2000"))
-    tool_result_dir = global_config.WORKDIR / os.getenv("TOOL_RESULTS_DIR", ".compact/tool-outputs")
+    tool_result_dir = global_config.WORKDIR / os.getenv("TOOL_RESULTS_DIR", ".evolve/compact/tool-outputs")
 
     tool_result_dir.mkdir(parents=True, exist_ok=True)
     stored_path = tool_result_dir / f"{tool_use_id}.txt"

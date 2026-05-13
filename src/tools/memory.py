@@ -100,11 +100,14 @@ class MemoryManager:
             mem_map[mem_type].append(mem)
 
         sections = ["# Memories (persistent across sessions)"]
-        for mem_type in MEMORY_TYPES:
-            sections.append(f"## [{mem_type}]")
-            for mem in mem_map.get(mem_type, []):
-                sections.append(f"### {mem['name']}: {mem['description']}")
-                sections.append(f"{mem['content']}")
+        if mem_map.keys():
+            for mem_type in mem_map.keys():
+                sections.append(f"## [{mem_type}]")
+                for mem in mem_map.get(mem_type, []):
+                    sections.append(f"### {mem['name']}: {mem['description']}")
+                    sections.append(f"{mem['content']}")
+        else:
+            sections.append("(no memories)")
 
         return "\n".join(sections)
 
@@ -192,35 +195,34 @@ class MemoryManager:
         return cast(Memory, cast(object, result))  # 类型转换成 Memory
 
 
-memory_schema = (
-    {
-        "name": "save_memory",
-        "description": "Save a persistent memory that survives across sessions.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Short identifier (e.g. prefer_tabs, db_schema)",
-                },
-                "description": {
-                    "type": "string",
-                    "description": "One-line summary of what this memory captures",
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["user", "feedback", "project", "reference"],
-                    "description": "user=preferences, feedback=corrections, project=non-obvious project conventions or decision reasons, reference=external resource pointers",
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Full memory content (multi-line OK)",
-                },
+memory_schema = {
+    "name": "save_memory",
+    "description": "Save a persistent memory that survives across sessions.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "Short identifier (e.g. prefer_tabs, db_schema)",
             },
-            "required": ["name", "description", "type", "content"],
+            "description": {
+                "type": "string",
+                "description": "One-line summary of what this memory captures",
+            },
+            "type": {
+                "type": "string",
+                "enum": ["user", "feedback", "project", "reference"],
+                "description": "user=preferences, feedback=corrections, project=non-obvious project conventions or decision reasons, reference=external resource pointers",
+            },
+            "content": {
+                "type": "string",
+                "description": "Full memory content (multi-line OK)",
+            },
         },
+        "required": ["name", "description", "type", "content"],
     },
-)
+}
+
 
 
 # 单例

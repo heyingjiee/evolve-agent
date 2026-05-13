@@ -21,4 +21,7 @@ pythonpath = ["src"]
 
 
 [tool.ruff.lint.per-file-ignores]
-"main.py" = ["E402"]
+"main.py" = ["E402"] # 忽略规则
+
+[project.scripts]
+evolve = "src.entry:main"  # 格式：终端命令 = 包.模块:函数名

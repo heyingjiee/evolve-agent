@@ -1,7 +1,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-
 from hooks import HookManager, Context
 
 
@@ -23,7 +22,9 @@ class TestHookManagerInit:
                 ]
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -47,7 +48,9 @@ class TestHookManagerInit:
     def test_empty_hooks_config(self, tmp_path):
         """测试空的 hooks 配置"""
         hooks_config = {"hooks": {}}
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -71,7 +74,9 @@ class TestRunHook:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -93,7 +98,9 @@ class TestRunHook:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -116,7 +123,9 @@ class TestRunHook:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -139,7 +148,9 @@ class TestRunHook:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -166,7 +177,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -189,7 +202,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -213,7 +228,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -237,7 +254,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -264,7 +283,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -291,7 +312,9 @@ class TestHookResultProcessing:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -319,7 +342,9 @@ class TestContextInjection:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -331,6 +356,7 @@ class TestContextInjection:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
                 manager.run_hook("PreToolUse", context)
 
+                mock_run.assert_called()
                 call_kwargs = mock_run.call_args.kwargs
                 env = call_kwargs["env"]
 
@@ -352,7 +378,9 @@ class TestTimeout:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -379,7 +407,9 @@ class TestToolOutputContext:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:
@@ -395,6 +425,7 @@ class TestToolOutputContext:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
                 manager.run_hook("PostToolUse", context)
 
+                mock_run.assert_called()
                 call_kwargs = mock_run.call_args.kwargs
                 env = call_kwargs["env"]
                 assert "file content here" in env["tool_output"]
@@ -412,7 +443,9 @@ class TestSessionStartHook:
                 "SessionStart": [{"matcher": "*", "command": "echo session started"}]
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         with patch("hooks.global_config") as mock_config:

@@ -39,7 +39,9 @@ class TestHookE2E:
                 ]
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
         return tmp_path
 
@@ -69,10 +71,8 @@ class TestHookE2E:
                 manager.run_hook("PreToolUse", context)
 
                 mock_run.assert_called_once()
-                # mock_run.call_args 是一个 mock.call_args tuple (args, kwargs)
-                # subprocess.run 调用: command 是位置参数
                 call_args = mock_run.call_args
-                cmd = call_args[0][0]  # 第一个位置参数是 command
+                cmd = call_args[0][0]
                 assert cmd == "echo 'PRE-BASH-TRIGGERED'"
 
     def test_pre_tool_use_hook_not_matched(self, test_hooks_config):
@@ -143,6 +143,7 @@ class TestHookE2E:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
                 manager.run_hook("PreToolUse", context)
 
+                mock_run.assert_called()
                 call_kwargs = mock_run.call_args.kwargs
                 env = call_kwargs["env"]
 
@@ -227,7 +228,9 @@ class TestRealHookScenarios:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         from hooks import HookManager, Context
@@ -257,7 +260,9 @@ class TestRealHookScenarios:
                 "SessionStart": []
             }
         }
-        hooks_file = tmp_path / "hooks.json"
+        evolve_dir = tmp_path / ".evolve"
+        evolve_dir.mkdir()
+        hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
         from hooks import HookManager, Context

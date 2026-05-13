@@ -1,12 +1,50 @@
+
+from dotenv import load_dotenv
+# 加载环境变量 - 必须在其他导入之前
+load_dotenv(override=True)
+
+import json
 import os
+from pathlib import Path
 from typing import cast
 
 import tools
-from agents.task import run_task_subagent, task_schema
 from config import global_config
-from hooks import Context, HookManager
-from permission.manager import PermissionManager
+from hooks import HookManager, Context
+from permission.manager import MODES, PermissionManager
 from tools import memory_mgr
+from agents.task import task_schema, run_task_subagent
+from prompt import SystemPromptBuilder
+
+try:
+    import readline
+
+    # #143 UTF-8 backspace fix for macOS libedit
+    readline.parse_and_bind("set bind-tty-special-chars off")
+    readline.parse_and_bind("set input-meta on")
+    readline.parse_and_bind("set output-meta on")
+    readline.parse_and_bind("set convert-meta off")
+    # readline.parse_and_bind('set enable-meta-keybindings on')
+except ImportError:
+    pass
+
+if os.getenv("ANTHROPIC_BASE_URL"):
+    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+
+# TODO 工具是否支持同步，目前工具调用不能同步
+CONCURRENCY_SAFE = {"read_file"}
+CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
+
+# TODO 加入到入口，没有就input要求用户确认，确认后新建配置文件，取消直接结束
+def is_workspace_trusted(workspace: Path) -> bool:
+    """检查是否是受信人工作区"""
+    ws = workspace or global_config.WORKDIR
+    setting_path = ws / ".evolve/setting.json"
+    if not setting_path.exists():
+        return False
+    else:
+        return json.loads(setting_path.read_text()).get("trust", False)
+
 
 # 任务管理器
 reminder_interval = int(os.getenv("REMINDER_INTERVAL", "3"))
@@ -26,16 +64,15 @@ TOOLS = [
     tools.memory_schema,
 ]
 
-
 # 调用工具
-def execute_tool(block, state: tools.CompactState) -> str:
+def execute_tool(block, compact_state: tools.CompactState) -> str:
     tool_name = block.get("name")
     argv = block.get("input")
     tool_use_id = block.get("id")
     if tool_name == "bash":
         return tools.run_bash(argv["command"], tool_use_id)
     if tool_name == "read_file":
-        return tools.run_read(argv["path"], tool_use_id, state, argv.get("limit"))
+        return tools.run_read(argv["path"], tool_use_id, compact_state, argv.get("limit"))
     if tool_name == "write_file":
         return tools.run_write(argv["path"], argv["content"])
     if tool_name == "edit_file":
@@ -54,7 +91,6 @@ def execute_tool(block, state: tools.CompactState) -> str:
     if tool_name == "save_memory":
         memory_mgr.save_memory(argv)
     return f"Unknown tool: {tool_name}"
-
 
 # 统一处理下规范化参数
 def normalize_messages(messages: list) -> list:
@@ -123,55 +159,38 @@ def normalize_messages(messages: list) -> list:
             merged.append(msg)
     return merged
 
+# # 异常恢复器
+# def choose_recovery(stop_reason: str | None, e: Exception | None) -> dict:
+#     """
+#         参数:
+#             stop_reason 是每轮LLM返回的信息
+#             error_text 是 try...except 捕获的错误
+#         核心逻辑：
+#            1、 stop_reason == "max_tokens" 大模型调用超tokens了
+#            2、 e 错误
+#                  except APIError as e:
+#                    str(e) = overlong_prompt、(long+prompt) prompt超过上下文了 => 压缩
+#                    str(e) = 其他错误 => 重试
+#                  except (Ne):
+#     """
+#     ...
 
-MEMORY_GUIDANCE = """
-When to save memories:
-- User states a preference ("I like tabs", "always use pytest") -> type: user
-- User corrects you ("don't do X", "that was wrong because...") -> type: feedback
-- You learn a project fact that is not easy to infer from current code alone
-  (for example: a rule exists because of compliance, or a legacy module must
-  stay untouched for business reasons) -> type: project
-- You learn where an external resource lives (ticket board, dashboard, docs URL)
-  -> type: reference
-When NOT to save:
-- Anything easily derivable from code (function signatures, file structure, directory layout)
-- Temporary task state (current branch, open PR numbers, current TODOs)
-- Secrets or credentials (API keys, passwords)
-"""
-
-
-# 系统提示词
-def build_system_prompt():
-    parts = [
-        f"You are a coding agent at {global_config.WORKDIR}. Use tools to solve tasks"
-    ]
-
-    # 加载存储的记忆 ，如何使用记忆
-    # TODO: 记忆会膨胀，需要定期处理。09提到的DreamConsolidator
-    # TODO: subAgent 支持读memory，不能写
-    memory_section = memory_mgr.load_memory_prompt()
-    if memory_section:
-        parts.append(memory_section)
-    parts.append(MEMORY_GUIDANCE)
-
-    # Skill
-    parts.append(f"Skills available: {tools.SKILL_REGISTRY.describe_available()}")
-
-    return "\n\n".join(parts)
-
+# 动态构建系统提示词
+prompt_builder = SystemPromptBuilder(global_config.WORKDIR, TOOLS)
 
 # 核心Agent Loop
+
 def agent_loop(
     messages: list,
     *,
-    state: tools.CompactState,
+    compact_state: tools.CompactState,
     perms: PermissionManager,
     hooks: HookManager,
 ):
     """单词循环， True会进入下一轮循环 ，False结束循环"""
     while True:
         # 组装系统提示词
-        system = build_system_prompt()
+        system = prompt_builder.build()
 
         # 规范化参数
         messages[:] = normalize_messages(messages)  # 这是原地修改
@@ -182,7 +201,7 @@ def agent_loop(
         # 超过上限压缩上下文
         if len(str(messages)) > int(os.getenv("CONTEXT_LIMIT", "50000")):
             print("[auto compact conversation history]")
-            messages[:] = tools.compact_history(messages, state)
+            messages[:] = tools.compact_history(messages, compact_state)
 
         # 调用模型
         resp = global_config.client.messages.create(
@@ -211,7 +230,7 @@ def agent_loop(
 
         # 工具调用
         tool_contents = []
-        used_todo = False  # 存储本轮对话中，是否调用了计划工具
+        used_plan = False  # 存储本轮对话中，是否调用了计划工具
         manual_compact = False  # 存储本轮对话中，是否调用了压缩工具
         compact_focus = None  # LLM 返回是否压缩上下文
 
@@ -261,7 +280,7 @@ def agent_loop(
                         )
                         continue
 
-                    output = execute_tool(block, state)
+                    output = execute_tool(block, compact_state)
 
                     # 执行后钩子
                     ctx["tool_output"] = output
@@ -288,15 +307,15 @@ def agent_loop(
                 )
 
                 # 记录调用过计划工具
-                if tool_name == "todo":
-                    used_todo = True
+                if tool_name == "plan":
+                    used_plan = True
                 # 记录调用过压缩工具
                 if tool_name == "compact":
                     manual_compact = True
                     compact_focus = (tool_input or {}).get("focus")
 
         # 调用了计划工具
-        if used_todo:
+        if used_plan:
             planManager.state.rounds_since_update = 0
         else:
             # 没有调用就计数，然后触发reminder
@@ -309,6 +328,129 @@ def agent_loop(
         # 调用了压缩工具
         if manual_compact:
             print("[manual compact]")
-            messages[:] = tools.compact_history(messages, state, focus=compact_focus)
+            messages[:] = tools.compact_history(messages, compact_state, focus=compact_focus)
 
         messages.append({"role": "user", "content": tool_contents})
+
+
+def main():
+    # 先询问是否信任工作区，信任放行，否则退出
+    if not is_workspace_trusted(global_config.WORKDIR):
+        is_trusted = input("> do you trust the current workspace? Allow? (y/n):")
+        if is_trusted == "y":
+            setting_file = global_config.WORKDIR / ".evolve/setting.json"
+            setting_config = {}
+            if setting_file.exists():
+                # 存在读取历史配置
+                setting_config = json.loads(setting_file.read_text())
+            else:
+                # 不存在保证父级目录存在，后面write才不会报错
+                setting_file.parent.mkdir(parents=True, exist_ok=True)
+            # 设置配置
+            setting_config["trust"] = "true"
+            setting_file.write_text(
+                json.dumps(setting_config, indent=4, ensure_ascii=False)
+            )
+        else:
+            return
+
+    # 对话历史
+    history = []
+    # 压缩状态
+    compact_state = tools.CompactState()
+    # 钩子
+    hooks = HookManager()
+    # 加载 .evolve/.memory 下的记忆文件
+    memory_mgr.load_all()
+    # 构建好的提示词
+    full_prompt = prompt_builder.build()
+    section_count = full_prompt.count("\n# ")
+    print(f"[System prompt assembled: {len(full_prompt)} chars, ~{section_count} sections]")
+
+    # 启动设置权限模式
+    # mode_input = input("choose mode (default/plan/auto): ").strip().lower() or "default"
+    # print(f"[Using {mode_input} mode]")
+    perms = PermissionManager(mode="default")
+
+    while True:
+        try:
+            query = input("evolve> ").strip()
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        # 退出
+        if query.lower() in ("exit", "q"):
+            break
+
+        # /mode <mode> 切换权限模式
+        if query.startswith("/mode"):
+            parts = query.split()
+            if len(parts) == 2:
+                perms.mode = parts[1]
+                print(f"[Switched to {parts[1]} mode]")
+            else:
+                print(f"Usage: /mode <{'|'.join(MODES)}>")
+            continue
+
+        # /rules 展示当前规则集合
+        if query == "/rules":
+            for index, rule in enumerate(perms.rules):
+                print(f"{index}: {rule}")
+            continue
+
+        # /memories 列出当前记忆文件
+        if query == "/memories":
+            if memory_mgr.memories:
+                for mem in memory_mgr.memories.values():
+                    print(f"  [{mem['type']}] {mem['name']} {mem['description']}")
+            else:
+                print("  (no memories)")
+            continue
+
+        if query == "/prompt":
+            print(prompt_builder.build())
+            continue
+
+        if query.strip() == "/sections":
+            prompt = prompt_builder.build()
+            for line in prompt.splitlines():
+                if line.startswith("# ") or line == "=== DYNAMIC_BOUNDARY ===":
+                    print(f"  {line}")
+            continue
+
+        history.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": query,
+                    }
+                ],
+            }
+        )
+        agent_loop(
+            history,
+            compact_state=compact_state,
+            perms=perms,
+            hooks=hooks,
+        )
+
+        final_text = "".join(
+            [
+                block["text"]
+                for block in history[-1]["content"]
+                if block["type"] == "text"
+            ]
+        )
+        print(f"{'-' * 50}\n{final_text}\n{'-' * 50}")
+
+
+if __name__ == "__main__":
+    main()
+
+# 计划测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
+
+# subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md
+
+# 压缩read_file、bash返回值、自动压缩上下文： 读取 /Users/heyingjie/Downloads/简历.pdf 分析如何改进来提高简历初筛率
