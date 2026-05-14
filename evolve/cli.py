@@ -80,7 +80,7 @@ def execute_tool(block, compact_state: tools.CompactState) -> str:
     if tool_name == "task":
         desc = cast(str, argv.get("description", "subtask"))
         prompt = cast(str, argv.get("prompt", ""))
-        print(f"[Subagent]: {desc}: {prompt[:80]}")
+        print(f"[Subagent Prompt]\n{desc}: {prompt[:80]}")
         return run_task_subagent(prompt)
     if tool_name == "load_skill":
         return tools.SKILL_REGISTRY.load_full_text(argv["name"])

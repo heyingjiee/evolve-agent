@@ -110,8 +110,9 @@ class TestSystemPromptBuilder:
         assert "## From project root (AGENT.md)" in result
         assert "# Project Agent" in result
 
-    def test_build_dynamic_context_missing_model(self, temp_workdir):
+    def test_build_dynamic_context_missing_model(self, temp_workdir, monkeypatch):
         """测试 MODEL_ID 环境变量缺失"""
+        monkeypatch.delenv("MODEL_ID", raising=False)
         builder = SystemPromptBuilder(temp_workdir)
         with pytest.raises(KeyError):
             builder._build_dynamic_context()
