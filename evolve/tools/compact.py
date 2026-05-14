@@ -27,7 +27,7 @@ def collect_tool_result_blocks(messages: list):
 def micro_compact(messages: list) -> list:
     """
         压缩工具返回内容
-     """
+    """
     tool_results = collect_tool_result_blocks(messages)
     keep_recent_tool_results = int(os.getenv("KEEP_RECENT_TOOL_RESULTS", "3"))
     if len(tool_results) < keep_recent_tool_results:

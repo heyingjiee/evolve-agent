@@ -109,7 +109,7 @@ class PermissionManager:
     def ask_user(self, tool_name: str, tool_input: dict) -> bool:
         """ 询问用户是否授权，授权返回True """
         preview = json.dumps(tool_input, ensure_ascii=False)[:200]
-        print(f"\n[Permission]\n{tool_name}: {preview}")
+        print(f"[Permission]\n{tool_name}: {preview}")
         try:
             answer = input("Allow? (y/n/always): ").strip().lower()
         except (KeyboardInterrupt,EOFError):

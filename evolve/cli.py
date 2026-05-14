@@ -284,6 +284,7 @@ def agent_loop(
                         continue
 
                     output = execute_tool(block, compact_state)
+                    print(f"[Output]\n{output[:200]}")
 
                     # 执行后钩子
                     ctx["tool_output"] = output
@@ -297,8 +298,7 @@ def agent_loop(
                             "content": str(output),  # 这里覆盖了执行结果
                         }
                     )
-                    print(f"[Output]\n{output[:200]}")
-                    # print(f"{'-' * 50}")
+
 
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
                 tool_contents.append(

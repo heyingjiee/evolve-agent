@@ -1,21 +1,132 @@
-# evolve
+# evolve-agent
 
-## 安装依赖
+基于 Claude API 的 Python AI 编程助手，支持钩子系统、持久化记忆、权限控制、上下文压缩。
+
+## 核心特性
+
+### 钩子系统
+通过 PreToolUse、PostToolUse、SessionStart 钩子自定义 Agent 行为。
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "node scripts/check_safety.js"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "command": "git add ."
+      }
+    ]
+  }
+}
+```
+
+### 持久化记忆
+跨会话持久化的记忆系统，支持四种类型：
+- `user` — 用户偏好
+- `feedback` — 过往纠正的问题
+- `project` — 非显而易见的项目约定
+- `reference` — 外部资源指向（任务面板、监控面板、文档）
+
+### 权限控制
+细粒度的工具调用权限管理，控制哪些工具可以使用以及使用条件。
+
+### 上下文压缩
+`compact` 工具智能压缩对话上下文，保持在模型限制内。
+
+### 技能系统
+可扩展的技能框架，内置技能包括：
+- `commit` — git commit/push/pr 工作流
+
+## 快速开始
+
+### 安装依赖
 
 ```shell
 uv sync
 ```
 
-## 运行
+### 配置 API Key
+
+```shell
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+或创建 `.env` 文件（参考 `.env.example`）。
+
+### 运行
 
 ```shell
 uv run start
+```
 
+或直接：
+
+```shell
 python -m evolve
 ```
 
-## lint
+启动后进入交互式界面：
+
+![CLI 界面](images/run-screen-shot.png)
+
+## 项目结构
+
+```
+evolve-agent/
+├── evolve/
+│   ├── agents/          # Agent 实现
+│   ├── cli.py           # CLI 入口
+│   ├── config.py        # 全局配置
+│   ├── hooks.py        # 钩子系统（HookManager）
+│   ├── permission/     # 权限管理
+│   ├── prompt.py       # 系统提示词构建
+│   ├── tools/          # 工具实现
+│   │   ├── bash.py
+│   │   ├── compact.py   # 上下文压缩
+│   │   ├── memory.py   # 记忆管理
+│   │   ├── plan.py
+│   │   └── ...
+│   ├── skills/         # 技能定义
+│   │   └── commit/
+│   └── shared/         # 共享工具
+├── tests/              # 测试套件
+├── .evolve/            # 运行时数据
+│   ├── skills/         # 技能运行时
+│   └── .memory/        # 记忆存储
+└── AGENT.md            # Agent 指令
+```
+
+## 开发者指南
+
+### 安装依赖
+
+```shell
+uv sync
+```
+
+### 代码检查
+
 ```shell
 ruff check . --fix
 ```
 
+### 运行测试
+
+```shell
+pytest
+```
+
+### 项目依赖
+
+- `anthropic>=0.97.0` — Claude API 客户端
+- `python-dotenv>=1.2.2` — 环境变量加载
+
+## License
+
+参见 [LICENSE](LICENSE) 文件。

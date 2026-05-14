@@ -62,9 +62,9 @@ class HookManager:
         hooks_config = {}
         if hooks_config_path.exists():
             hooks_config = json.loads(hooks_config_path.read_text())["hooks"]
-        for event in ("PreToolUse", "PostToolUse", "SessionStart"):
-            self.hooks[event] = hooks_config.get(event, [])
-        print(f"[Hooks loaded from {hooks_config_path}]")
+            for event in ("PreToolUse", "PostToolUse", "SessionStart"):
+                self.hooks[event] = hooks_config.get(event, [])
+            print(f"[Hooks loaded from {hooks_config_path}]")
 
     def run_hook(self, event: str, context: Context) -> HookResult:
         """
@@ -114,7 +114,7 @@ class HookManager:
                         shell=True,
                         capture_output=True,
                         text=True, timeout=HOOK_TIMEOUT)
-                    print(f"  [hook:{event}] {r.stdout.strip()[:100] if r.stdout else "(no stdout)})"}")
+                    print(f"[hook:{event}]\n{r.stdout.strip()[:100] if r.stdout else "(no stdout)})"}")
                     # 放行
                     if r.returncode == 0:
                         try:
