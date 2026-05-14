@@ -178,8 +178,13 @@ def normalize_messages(messages: list) -> list:
 # 动态构建系统提示词
 prompt_builder = SystemPromptBuilder(global_config.WORKDIR, TOOLS)
 
-# 核心Agent Loop
 
+def estimate_tokens(messages: list) -> int:
+    """粗略的评估token， 字符长度除以4/token."""
+    return len(json.dumps(messages, default=str)) // 4
+
+
+# 核心Agent Loop
 def agent_loop(
     messages: list,
     *,
@@ -295,7 +300,7 @@ def agent_loop(
                         }
                     )
                     print(f"[Output]\n{output[:200]}")
-                    print(f"{'-' * 50}")
+                    # print(f"{'-' * 50}")
 
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
                 tool_contents.append(
@@ -324,6 +329,7 @@ def agent_loop(
             if reminder:
                 # 注意力机制对开头和结尾的信息最敏感，而对中间的信息关注度最低。开头内容更不容易被噪音干扰
                 tool_contents.insert(0, {"type": "text", "text": reminder})
+                print(f"[Reminder plan]")
 
         # 调用了压缩工具
         if manual_compact:

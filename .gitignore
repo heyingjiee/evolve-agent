@@ -1,6 +1,10 @@
 .vscode
 .idea
 
+__pycache__
+*.pyc
+*.pyo
+
 .venv
 
 dist
@@ -8,6 +12,8 @@ build
 .env
 
 
-.compact
+.evolve
+!.evolve/setting.json
+
 .DS_Store
 playground.ipynb

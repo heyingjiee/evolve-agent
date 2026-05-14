@@ -76,13 +76,23 @@ def summarize_history(messages: list) -> str:
             {"type": "text", "text": prompt}
         ]
     }]
-    resp = global_config.client.messages.create(
-        model=os.getenv('MODEL_ID', 'claude-opus-4-6'),
-        messages=messages,
-        max_tokens=2000
-    )
 
-    return resp.content[-1].text.strip()
+    try:
+        resp = global_config.client.messages.create(
+            model=os.getenv('MODEL_ID', 'claude-opus-4-6'),
+            messages=messages,
+            max_tokens=2000
+        )
+        summary = resp.content[-1].text.strip()
+    except Exception as e:
+        summary = f"(compact failed: {e}). Previous context lost."
+
+    continuation = (
+        "This session continues from a previous conversation that was compacted. "
+        f"Summary of prior context:\n\n{summary}\n\n"
+        "Continue from where we left off without re-asking the user."
+    )
+    return continuation
 
 
 def compact_history(messages: list, state: CompactState, focus: str | None = None, ):

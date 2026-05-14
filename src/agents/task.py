@@ -75,8 +75,11 @@ def run_task_subagent(prompt: str) -> str:
                 tool_use_id = block["id"]
                 tool_argv = block["input"]
                 output = execute_tool(block, compact_state)
-                print(f"[Tool]\n{tool_name}: {tool_argv}")
-                print(f"[Tool Result]\n{output[:200]}")
+                print(f"{'-' * 50}")
+                print(f"[Name] {tool_name}")
+                print(f"[Input]\n{tool_argv}")
+                print(f"[Summary]\n{output}")
+
                 # 工具的调用结果，要和tool_use_id关联上，llm才知道结果是哪次工具调用返回的
                 results.append({"type": "tool_result", "content": output, "tool_use_id": tool_use_id})
 
