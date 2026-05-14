@@ -9,9 +9,7 @@ Memory E2E 测试 - 模拟 LLM 调用 save_memory 工具的完整流程
 
 from unittest.mock import MagicMock
 
-import pytest
-
-from tools.memory import MemoryManager
+from evolve.tools import MemoryManager
 
 
 class TestMemoryE2E:

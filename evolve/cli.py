@@ -8,17 +8,15 @@ import os
 from pathlib import Path
 from typing import cast
 
-import tools
-from config import global_config
-from hooks import HookManager, Context
-from permission.manager import MODES, PermissionManager
-from tools import memory_mgr
-from agents.task import task_schema, run_task_subagent
-from prompt import SystemPromptBuilder
+from evolve import tools
+from evolve.config import global_config
+from evolve.hooks import HookManager, Context
+from evolve.permission.manager import MODES, PermissionManager
+from evolve.agents.task import task_schema, run_task_subagent
+from evolve.prompt import SystemPromptBuilder
 
 try:
     import readline
-
     # #143 UTF-8 backspace fix for macOS libedit
     readline.parse_and_bind("set bind-tty-special-chars off")
     readline.parse_and_bind("set input-meta on")
@@ -89,7 +87,7 @@ def execute_tool(block, compact_state: tools.CompactState) -> str:
     if tool_name == "compact":
         return "Compacting conversation..."  # 真正的压缩不在这里，在agent loop
     if tool_name == "save_memory":
-        memory_mgr.save_memory(argv)
+        tools.memory_mgr.save_memory(argv)
     return f"Unknown tool: {tool_name}"
 
 # 统一处理下规范化参数
@@ -256,11 +254,11 @@ def agent_loop(
                 if behavior == "deny":
                     # 拒绝
                     output = f"Permission denied: {reason}"
-                    print(f"  [DENIED] {block.name}: {reason}")
+                    print(f"  [DENIED] {block.get('name', 'unknown')}: {reason}")
                 elif behavior == "ask" and not perms.ask_user(tool_name, tool_input):
                     # 询问用户，用户拒绝
                     output = f"Permission denied by user for: {tool_name}"
-                    print(f"  [USER DENIED] {block.name}")
+                    print(f"  [USER DENIED] {block.get('name', 'unknown')}")
                 else:
                     # 允许 / 询问用户同意
                     # 执行前钩子
@@ -339,7 +337,7 @@ def agent_loop(
         messages.append({"role": "user", "content": tool_contents})
 
 
-def main():
+def app():
     # 先询问是否信任工作区，信任放行，否则退出
     if not is_workspace_trusted(global_config.WORKDIR):
         is_trusted = input("> do you trust the current workspace? Allow? (y/n):")
@@ -367,7 +365,7 @@ def main():
     # 钩子
     hooks = HookManager()
     # 加载 .evolve/.memory 下的记忆文件
-    memory_mgr.load_all()
+    tools.memory_mgr.load_all()
     # 构建好的提示词
     full_prompt = prompt_builder.build()
     section_count = full_prompt.count("\n# ")
@@ -406,8 +404,8 @@ def main():
 
         # /memories 列出当前记忆文件
         if query == "/memories":
-            if memory_mgr.memories:
-                for mem in memory_mgr.memories.values():
+            if tools.memory_mgr.memories:
+                for mem in tools.memory_mgr.memories.values():
                     print(f"  [{mem['type']}] {mem['name']} {mem['description']}")
             else:
                 print("  (no memories)")
@@ -453,7 +451,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    app()
 
 # 计划测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
 

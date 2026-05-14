@@ -6,10 +6,10 @@ class TestExecuteTool:
 
     def test_execute_bash(self):
         """测试 bash 工具执行"""
-        with patch("agents.task.tools") as mock_tools:
+        with patch("evolve.agents.task.tools") as mock_tools:
             mock_tools.run_bash.return_value = "output"
-            from agents.task import execute_tool
-            from tools import CompactState
+            from evolve.agents.task import execute_tool
+            from evolve.tools import CompactState
 
             block = {
                 "name": "bash",
@@ -26,10 +26,10 @@ class TestExecuteTool:
         test_file = tmp_path / "test.txt"
         test_file.write_text("file content")
 
-        with patch("agents.task.tools") as mock_tools:
+        with patch("evolve.agents.task.tools") as mock_tools:
             mock_tools.run_read.return_value = "file content"
-            from agents.task import execute_tool
-            from tools import CompactState
+            from evolve.agents.task import execute_tool
+            from evolve.tools import CompactState
 
             block = {
                 "name": "read_file",
@@ -43,10 +43,10 @@ class TestExecuteTool:
 
     def test_execute_write_file(self):
         """测试 write_file 工具执行"""
-        with patch("agents.task.tools") as mock_tools:
+        with patch("evolve.agents.task.tools") as mock_tools:
             mock_tools.run_write.return_value = "OK"
-            from agents.task import execute_tool
-            from tools import CompactState
+            from evolve.agents.task import execute_tool
+            from evolve.tools import CompactState
 
             block = {
                 "name": "write_file",
@@ -60,10 +60,10 @@ class TestExecuteTool:
 
     def test_execute_edit_file(self):
         """测试 edit_file 工具执行"""
-        with patch("agents.task.tools") as mock_tools:
+        with patch("evolve.agents.task.tools") as mock_tools:
             mock_tools.run_edit.return_value = "OK"
-            from agents.task import execute_tool
-            from tools import CompactState
+            from evolve.agents.task import execute_tool
+            from evolve.tools import CompactState
 
             block = {
                 "name": "edit_file",
@@ -77,10 +77,10 @@ class TestExecuteTool:
 
     def test_execute_load_skill(self):
         """测试 load_skill 工具执行"""
-        with patch("agents.task.SKILL_REGISTRY") as mock_registry:
+        with patch("evolve.agents.task.SKILL_REGISTRY") as mock_registry:
             mock_registry.load_full_text.return_value = "<skill>test</skill>"
-            from agents.task import execute_tool
-            from tools import CompactState
+            from evolve.agents.task import execute_tool
+            from evolve.tools import CompactState
 
             block = {
                 "name": "load_skill",
@@ -95,8 +95,8 @@ class TestExecuteTool:
 
     def test_execute_compact(self):
         """测试 compact 工具执行"""
-        from agents.task import execute_tool
-        from tools import CompactState
+        from evolve.agents.task import execute_tool
+        from evolve.tools import CompactState
 
         block = {
             "name": "compact",
@@ -110,8 +110,8 @@ class TestExecuteTool:
 
     def test_execute_unknown_tool(self):
         """测试未知工具"""
-        from agents.task import execute_tool
-        from tools import CompactState
+        from evolve.agents.task import execute_tool
+        from evolve.tools import CompactState
 
         block = {
             "name": "unknown_tool",
@@ -129,7 +129,7 @@ class TestRunTaskSubagent:
 
     def test_subagent_no_tool_call(self):
         """测试 LLM 不调用工具，直接返回文本"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         mock_text_block = MagicMock()
         mock_text_block.to_dict.return_value = {"type": "text", "text": "这是摘要内容"}
@@ -137,7 +137,7 @@ class TestRunTaskSubagent:
         mock_response.stop_reason = "end_turn"
         mock_response.content = [mock_text_block]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.return_value = mock_response
 
             result = run_task_subagent("帮我完成任务")
@@ -147,7 +147,7 @@ class TestRunTaskSubagent:
 
     def test_subagent_single_tool_call(self):
         """测试 LLM 调用一次工具后返回"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         # Mock 一个可以 to_dict() 的 tool_use block
         mock_tool_block = MagicMock()
@@ -167,10 +167,10 @@ class TestRunTaskSubagent:
         mock_summary_response.stop_reason = "end_turn"
         mock_summary_response.content = [mock_text_block]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.side_effect = [mock_tool_response, mock_summary_response]
 
-            with patch("agents.task.execute_tool") as mock_exec:
+            with patch("evolve.agents.task.execute_tool") as mock_exec:
                 mock_exec.return_value = "ls output"
 
                 result = run_task_subagent("查看文件")
@@ -181,7 +181,7 @@ class TestRunTaskSubagent:
 
     def test_subagent_multiple_tool_calls(self):
         """测试 LLM 多次调用工具"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         mock_tool_block = MagicMock()
         mock_tool_block.to_dict.return_value = {
@@ -200,10 +200,10 @@ class TestRunTaskSubagent:
         mock_summary_response.stop_reason = "end_turn"
         mock_summary_response.content = [mock_text_block]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.side_effect = [mock_tool_response, mock_summary_response]
 
-            with patch("agents.task.execute_tool") as mock_exec:
+            with patch("evolve.agents.task.execute_tool") as mock_exec:
                 mock_exec.return_value = "result"
 
                 result = run_task_subagent("任务")
@@ -213,7 +213,7 @@ class TestRunTaskSubagent:
 
     def test_subagent_max_iterations(self):
         """测试达到最大迭代次数（30轮）"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         mock_tool_block = MagicMock()
         mock_tool_block.to_dict.return_value = {
@@ -226,10 +226,10 @@ class TestRunTaskSubagent:
         mock_response.stop_reason = "tool_use"
         mock_response.content = [mock_tool_block]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.return_value = mock_response
 
-            with patch("agents.task.execute_tool") as mock_exec:
+            with patch("evolve.agents.task.execute_tool") as mock_exec:
                 mock_exec.return_value = "result"
 
                 run_task_subagent("任务")
@@ -238,13 +238,13 @@ class TestRunTaskSubagent:
 
     def test_subagent_empty_response(self):
         """测试 LLM 返回空内容"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         mock_response = MagicMock()
         mock_response.stop_reason = "end_turn"
         mock_response.content = [MagicMock(type="text", text="")]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.return_value = mock_response
 
             result = run_task_subagent("任务")
@@ -253,13 +253,13 @@ class TestRunTaskSubagent:
 
     def test_subagent_no_text_block(self):
         """测试 LLM 返回没有 text 块"""
-        from agents.task import run_task_subagent
+        from evolve.agents.task import run_task_subagent
 
         mock_response = MagicMock()
         mock_response.stop_reason = "end_turn"
         mock_response.content = [MagicMock(type="image", source=MagicMock())]
 
-        with patch("agents.task.global_config") as mock_config:
+        with patch("evolve.agents.task.global_config") as mock_config:
             mock_config.client.messages.create.return_value = mock_response
 
             result = run_task_subagent("任务")
@@ -272,7 +272,7 @@ class TestTaskSchema:
 
     def test_task_schema_structure(self):
         """验证 task_schema 结构正确"""
-        from agents.task import task_schema
+        from evolve.agents.task import task_schema
 
         assert task_schema["name"] == "task"
         assert "description" in task_schema
@@ -288,7 +288,7 @@ class TestChildTools:
 
     def test_child_tools_include_skill(self):
         """验证子 Agent 工具集包含 skill"""
-        from agents.task import CHILD_TOOLS
+        from evolve.agents.task import CHILD_TOOLS
 
         tool_names = [t["name"] for t in CHILD_TOOLS]
         assert "bash" in tool_names

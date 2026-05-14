@@ -1,6 +1,6 @@
 import subprocess
-from tools.compact import persist_large_output
-from config import global_config
+from evolve.tools.compact import persist_large_output
+from evolve.config import global_config
 
 
 def run_bash(command: str, tool_use_id: str) -> str:

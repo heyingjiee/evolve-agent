@@ -1,6 +1,6 @@
 import pytest
 
-from tools.memory import MEMORY_TYPES, MemoryManager
+from evolve.tools import MEMORY_TYPES, MemoryManager
 
 
 class TestMemoryManager:
@@ -54,7 +54,7 @@ Test content here
 
     def test_save_memory_valid(self, mgr, temp_memory_dir):
         """测试保存有效记忆"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "test_memory",
@@ -77,7 +77,7 @@ Test content here
 
     def test_save_memory_invalid_name(self, mgr):
         """测试无效名称被拒绝"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "InvalidName",
@@ -92,7 +92,7 @@ Test content here
 
     def test_save_memory_invalid_name_no_underscore(self, mgr):
         """测试名称必须包含下划线"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "invalidname",
@@ -107,7 +107,7 @@ Test content here
 
     def test_save_memory_invalid_type(self, mgr):
         """测试无效类型被拒绝"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "test_memory",
@@ -122,7 +122,7 @@ Test content here
 
     def test_save_memory_empty_description(self, mgr):
         """测试空描述被拒绝"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "test_memory",
@@ -137,7 +137,7 @@ Test content here
 
     def test_save_memory_all_types(self, mgr, temp_memory_dir):
         """测试所有合法类型都能保存"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         for mem_type in MEMORY_TYPES:
             name = f"test_{mem_type}"
@@ -155,7 +155,7 @@ Test content here
 
     def test_save_memory_empty_content(self, mgr, temp_memory_dir):
         """测试空内容可以保存"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "test_em",
@@ -192,7 +192,7 @@ Test content {i}
     def test_rebuild_index(self, mgr, temp_memory_dir):
         """测试索引重建"""
         # 先保存一些记忆
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "idx_mem",
@@ -251,7 +251,7 @@ Line 4
 
     def test_update_memory(self, mgr, temp_memory_dir):
         """测试更新已存在的记忆"""
-        from tools.memory import Memory
+        from evolve.tools import Memory
 
         memory: Memory = {
             "name": "update_test",
@@ -285,7 +285,7 @@ class TestMemorySchema:
 
     def test_memory_schema_structure(self):
         """测试 schema 结构正确"""
-        from tools.memory import memory_schema
+        from evolve.tools import memory_schema
 
         assert memory_schema["name"] == "save_memory"
         assert "input_schema" in memory_schema
@@ -309,7 +309,7 @@ class TestMemoryTypes:
 
     def test_memory_types_contains_expected(self):
         """测试包含所有预期类型"""
-        from tools.memory import MEMORY_TYPES
+        from evolve.tools import MEMORY_TYPES
 
         assert "user" in MEMORY_TYPES
         assert "feedback" in MEMORY_TYPES

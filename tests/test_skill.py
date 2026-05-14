@@ -1,4 +1,4 @@
-from tools.skill import SkillRegistry
+from evolve.tools.skill import SkillRegistry
 
 
 class TestSkillRegistry:

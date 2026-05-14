@@ -4,6 +4,7 @@
 __pycache__
 *.pyc
 *.pyo
+*.egg-info/
 
 .venv
 
@@ -13,7 +14,6 @@ build
 
 
 .evolve
-!.evolve/setting.json
 
 .DS_Store
 playground.ipynb

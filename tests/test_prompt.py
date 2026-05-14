@@ -1,10 +1,9 @@
 import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from prompt import SystemPromptBuilder
+from evolve.prompt import SystemPromptBuilder
 
 
 class TestSystemPromptBuilder:

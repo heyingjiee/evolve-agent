@@ -1,5 +1,5 @@
 [project]
-name = "cc-learn"
+name = "evolve"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -17,11 +17,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["evolve"]
 
 
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["E402"] # 忽略规则
 
 [project.scripts]
-evolve = "src.entry:main"  # 格式：终端命令 = 包.模块:函数名
+start = "evolve.cli:app"

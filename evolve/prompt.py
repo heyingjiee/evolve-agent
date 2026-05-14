@@ -3,8 +3,8 @@ import os
 import sys
 from pathlib import Path
 
-import tools
-from tools import memory_mgr
+from evolve import tools
+from evolve.tools.memory import memory_mgr
 
 
 MEMORY_GUIDANCE = """

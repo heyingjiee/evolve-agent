@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shared.utils import safe_path
+from evolve.shared.utils import safe_path
 
 
 def run_write(path: str, content: str) -> str:

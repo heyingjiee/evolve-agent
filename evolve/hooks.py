@@ -3,7 +3,7 @@ import os
 import subprocess
 from typing import NotRequired, TypedDict
 
-from config import global_config
+from evolve.config import global_config
 
 # hook执行超时时间
 HOOK_TIMEOUT = 30  # 秒

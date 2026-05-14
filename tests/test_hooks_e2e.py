@@ -47,9 +47,9 @@ class TestHookE2E:
 
     def test_hooks_json_loaded(self, test_hooks_config):
         """验证 hooks.json 能否正确加载"""
-        from hooks import HookManager
+        from evolve.hooks import HookManager
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -59,9 +59,9 @@ class TestHookE2E:
 
     def test_pre_tool_use_hook_matcher(self, test_hooks_config):
         """测试 PreToolUse 钩子对 Bash 工具的匹配"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -77,9 +77,9 @@ class TestHookE2E:
 
     def test_pre_tool_use_hook_not_matched(self, test_hooks_config):
         """测试 PreToolUse 钩子对非匹配工具不触发"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -92,9 +92,9 @@ class TestHookE2E:
 
     def test_post_tool_use_hook_matcher(self, test_hooks_config):
         """测试 PostToolUse 钩子对 Read 工具的匹配"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -113,9 +113,9 @@ class TestHookE2E:
 
     def test_session_start_hook(self, test_hooks_config):
         """测试 SessionStart 钩子在会话启动时执行"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -128,9 +128,9 @@ class TestHookE2E:
 
     def test_hook_env_injection(self, test_hooks_config):
         """测试 hook 执行时环境变量注入"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -153,9 +153,9 @@ class TestHookE2E:
 
     def test_hook_blocked_result(self, test_hooks_config):
         """测试 hook 返回阻止结果"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -173,9 +173,9 @@ class TestHookE2E:
 
     def test_hook_inject_message(self, test_hooks_config):
         """测试 hook 返回码 2 注入消息"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -193,9 +193,9 @@ class TestHookE2E:
 
     def test_permission_override_integration(self, test_hooks_config):
         """测试 hook JSON 输出中的 permission_override"""
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = test_hooks_config
             manager = HookManager()
 
@@ -233,9 +233,9 @@ class TestRealHookScenarios:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -265,9 +265,9 @@ class TestRealHookScenarios:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        from hooks import HookManager, Context
+        from evolve.hooks import HookManager, Context
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 

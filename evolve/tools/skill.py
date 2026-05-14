@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from config import global_config
+from evolve.config import global_config
 
 
 @dataclass

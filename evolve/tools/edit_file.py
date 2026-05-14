@@ -1,5 +1,5 @@
-from config import global_config
-from shared.utils import safe_path
+from evolve.config import global_config
+from evolve.shared.utils import safe_path
 
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:

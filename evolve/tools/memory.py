@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import TypedDict, cast
 
-from config import global_config
+from evolve.config import global_config
 
 #### 目录结构 ####
 # .memory/

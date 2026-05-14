@@ -1,7 +1,7 @@
 import os
-import tools
-from config import global_config
-from tools.skill import SKILL_REGISTRY
+from evolve import tools
+from evolve.config import global_config
+from evolve.tools.skill import SKILL_REGISTRY
 
 # schema
 task_schema = {

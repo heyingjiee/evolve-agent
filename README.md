@@ -9,7 +9,9 @@ uv sync
 ## 运行
 
 ```shell
-uv run ./src/main.py
+uv run start
+
+python -m evolve
 ```
 
 ## lint

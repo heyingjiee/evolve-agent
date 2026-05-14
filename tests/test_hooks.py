@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from hooks import HookManager, Context
+from evolve.hooks import HookManager, Context
 
 
 class TestHookManagerInit:
@@ -27,7 +27,7 @@ class TestHookManagerInit:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -37,7 +37,7 @@ class TestHookManagerInit:
 
     def test_no_hooks_file(self, tmp_path):
         """测试没有 hooks.json 文件时初始化成功"""
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -53,7 +53,7 @@ class TestHookManagerInit:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -79,7 +79,7 @@ class TestRunHook:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -103,7 +103,7 @@ class TestRunHook:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -128,7 +128,7 @@ class TestRunHook:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -153,7 +153,7 @@ class TestRunHook:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -182,7 +182,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -207,7 +207,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -233,7 +233,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -259,7 +259,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -288,7 +288,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -317,7 +317,7 @@ class TestHookResultProcessing:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -347,7 +347,7 @@ class TestContextInjection:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -383,7 +383,7 @@ class TestTimeout:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -412,7 +412,7 @@ class TestToolOutputContext:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 
@@ -448,7 +448,7 @@ class TestSessionStartHook:
         hooks_file = evolve_dir / "hooks.json"
         hooks_file.write_text(json.dumps(hooks_config))
 
-        with patch("hooks.global_config") as mock_config:
+        with patch("evolve.hooks.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             manager = HookManager()
 

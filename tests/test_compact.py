@@ -8,7 +8,7 @@ class TestPersistLargeOutput:
 
     def test_small_output_not_persisted(self, tmp_path):
         """测试小输出不持久化"""
-        from tools.compact import persist_large_output
+        from evolve.tools import persist_large_output
 
         small_output = "hello world"
         result = persist_large_output("tool_1", small_output)
@@ -18,12 +18,12 @@ class TestPersistLargeOutput:
 
     def test_large_output_persisted_and_preview_returned(self, tmp_path):
         """测试大输出持久化到文件并返回预览"""
-        from tools.compact import persist_large_output
+        from evolve.tools import persist_large_output
 
         # 创建一个超过 30000 字符的输出
         large_output = "x" * 50000
 
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             result = persist_large_output("tool_big", large_output)
 
@@ -34,17 +34,17 @@ class TestPersistLargeOutput:
             assert len(result) < len(large_output)
 
             # 验证文件被写入
-            stored_file = tmp_path / ".compact/tool-outputs/tool_big.txt"
+            stored_file = tmp_path / ".evolve/compact/tool-outputs/tool_big.txt"
             assert stored_file.exists()
             assert stored_file.read_text() == large_output
 
     def test_output_exactly_at_threshold_not_persisted(self, tmp_path):
         """测试刚好在阈值不持久化"""
-        from tools.compact import persist_large_output
+        from evolve.tools import persist_large_output
 
         # 阈值是 30000，刚好等于时不持久化
         output = "y" * 30000
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             result = persist_large_output("tool_threshold", output)
 
@@ -52,10 +52,10 @@ class TestPersistLargeOutput:
 
     def test_output_slightly_over_threshold_persisted(self, tmp_path):
         """测试稍微超过阈值就持久化"""
-        from tools.compact import persist_large_output
+        from evolve.tools import persist_large_output
 
         output = "z" * 30001
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             result = persist_large_output("tool_over", output)
 
@@ -64,17 +64,17 @@ class TestPersistLargeOutput:
 
     def test_read_file_large_content_persisted(self, tmp_path):
         """测试 read_file 读取大文件时持久化"""
-        from tools.read_file import run_read
-        from tools.compact import CompactState
+        from evolve.tools.read_file import run_read
+        from evolve.tools import CompactState
 
         # 创建一个大于阈值的大文件
         large_file = tmp_path / "large_file.txt"
         large_file.write_text("a" * 50000)
 
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
-            with patch("tools.read_file.global_config", mock_config):
-                with patch("tools.read_file.safe_path") as mock_safe:
+            with patch("evolve.tools.read_file.global_config", mock_config):
+                with patch("evolve.tools.read_file.safe_path") as mock_safe:
                     mock_safe.return_value = large_file
                     state = CompactState()
                     result = run_read(str(large_file), "read_tool", state)
@@ -83,11 +83,11 @@ class TestPersistLargeOutput:
 
     def test_bash_large_output_persisted(self, tmp_path):
         """测试 bash 执行返回大输出时持久化"""
-        from tools.bash import run_bash
+        from evolve.tools import run_bash
 
         long_output = "b" * 50000
 
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             with patch("subprocess.run") as mock_run:
                 mock_result = MagicMock()
@@ -105,7 +105,7 @@ class TestMicroCompact:
 
     def test_few_tool_results_no_compaction(self):
         """测试工具返回结果少时不压缩"""
-        from tools.compact import micro_compact
+        from evolve.tools import micro_compact
 
         messages = [
             {"role": "user", "content": [
@@ -123,7 +123,7 @@ class TestMicroCompact:
 
     def test_many_tool_results_compacted(self):
         """测试工具返回结果多时压缩"""
-        from tools.compact import micro_compact
+        from evolve.tools import micro_compact
 
         # 创建超过 KEEP_RECENT_TOOL_RESULTS 的工具结果
         messages = [
@@ -152,7 +152,7 @@ class TestMicroCompact:
 
     def test_short_tool_results_not_compacted(self):
         """测试短内容工具结果不被压缩"""
-        from tools.compact import micro_compact
+        from evolve.tools import micro_compact
 
         messages = [
             {"role": "user", "content": [
@@ -171,7 +171,7 @@ class TestMicroCompact:
 
     def test_tool_result_120_chars_threshold(self):
         """测试 120 字符阈值"""
-        from tools.compact import micro_compact
+        from evolve.tools import micro_compact
 
         # 创建刚好超过 120 字符的内容
         messages = [
@@ -201,7 +201,7 @@ class TestCompactHistory:
 
     def test_compact_history_returns_single_message(self):
         """测试压缩后返回单条消息"""
-        from tools.compact import compact_history, CompactState
+        from evolve.tools import compact_history, CompactState
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "task 1"}]},
@@ -209,9 +209,9 @@ class TestCompactHistory:
             {"role": "user", "content": [{"type": "text", "text": "task 2"}]},
         ]
 
-        with patch("tools.compact.write_transcript") as mock_write:
+        with patch("evolve.tools.compact.write_transcript") as mock_write:
             mock_write.return_value = Path("/tmp/test.json")
-            with patch("tools.compact.summarize_history") as mock_summarize:
+            with patch("evolve.tools.compact.summarize_history") as mock_summarize:
                 mock_summarize.return_value = "Summary of conversation"
 
                 state = CompactState()
@@ -223,15 +223,15 @@ class TestCompactHistory:
 
     def test_compact_history_updates_state(self):
         """测试压缩后状态更新"""
-        from tools.compact import compact_history, CompactState
+        from evolve.tools import compact_history, CompactState
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "task"}]},
         ]
 
-        with patch("tools.compact.write_transcript") as mock_write:
+        with patch("evolve.tools.compact.write_transcript") as mock_write:
             mock_write.return_value = Path("/tmp/test.json")
-            with patch("tools.compact.summarize_history") as mock_summarize:
+            with patch("evolve.tools.compact.summarize_history") as mock_summarize:
                 mock_summarize.return_value = "Conversation summary"
 
                 state = CompactState()
@@ -241,15 +241,15 @@ class TestCompactHistory:
 
     def test_compact_history_with_focus(self):
         """测试带 focus 参数的压缩"""
-        from tools.compact import compact_history, CompactState
+        from evolve.tools import compact_history, CompactState
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "task"}]},
         ]
 
-        with patch("tools.compact.write_transcript") as mock_write:
+        with patch("evolve.tools.compact.write_transcript") as mock_write:
             mock_write.return_value = Path("/tmp/test.json")
-            with patch("tools.compact.summarize_history") as mock_summarize:
+            with patch("evolve.tools.compact.summarize_history") as mock_summarize:
                 mock_summarize.return_value = "Summary"
 
                 state = CompactState()
@@ -259,15 +259,15 @@ class TestCompactHistory:
 
     def test_compact_history_without_focus_uses_recent_files(self):
         """测试不带 focus 时使用 recent_files"""
-        from tools.compact import compact_history, CompactState
+        from evolve.tools import compact_history, CompactState
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "task"}]},
         ]
 
-        with patch("tools.compact.write_transcript") as mock_write:
+        with patch("evolve.tools.compact.write_transcript") as mock_write:
             mock_write.return_value = Path("/tmp/test.json")
-            with patch("tools.compact.summarize_history") as mock_summarize:
+            with patch("evolve.tools.compact.summarize_history") as mock_summarize:
                 mock_summarize.return_value = "Summary"
 
                 state = CompactState()
@@ -283,13 +283,13 @@ class TestWriteTranscript:
 
     def test_write_transcript_creates_directory(self, tmp_path):
         """测试写入 transcript 创建目录"""
-        from tools.compact import write_transcript
+        from evolve.tools import write_transcript
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "test"}]},
         ]
 
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             with patch.dict(os.environ, {"TRANSCRIPT_DIR": "transcripts"}):
                 path = write_transcript(messages)
@@ -300,13 +300,13 @@ class TestWriteTranscript:
 
     def test_write_transcript_content(self, tmp_path):
         """测试写入内容正确"""
-        from tools.compact import write_transcript
+        from evolve.tools import write_transcript
 
         messages = [
             {"role": "user", "content": [{"type": "text", "text": "hello"}]},
         ]
 
-        with patch("tools.compact.global_config") as mock_config:
+        with patch("evolve.tools.compact.global_config") as mock_config:
             mock_config.WORKDIR = tmp_path
             with patch.dict(os.environ, {"TRANSCRIPT_DIR": "transcripts"}):
                 path = write_transcript(messages)
@@ -320,7 +320,7 @@ class TestCollectToolResultBlocks:
 
     def test_collect_from_user_messages(self):
         """测试从 user 消息收集工具结果"""
-        from tools.compact import collect_tool_result_blocks
+        from evolve.tools import collect_tool_result_blocks
 
         messages = [
             {"role": "assistant", "content": [{"type": "text", "text": "response"}]},
@@ -337,7 +337,7 @@ class TestCollectToolResultBlocks:
 
     def test_ignore_non_tool_result_blocks(self):
         """测试忽略非工具结果块"""
-        from tools.compact import collect_tool_result_blocks
+        from evolve.tools import collect_tool_result_blocks
 
         messages = [
             {"role": "user", "content": [
@@ -355,7 +355,7 @@ class TestCompactState:
 
     def test_default_values(self):
         """测试默认值"""
-        from tools.compact import CompactState
+        from evolve.tools import CompactState
 
         state = CompactState()
         assert state.has_compacted is False
@@ -364,7 +364,7 @@ class TestCompactState:
 
     def test_recent_files_tracking(self):
         """测试 recent_files 追踪"""
-        from tools.compact import CompactState
+        from evolve.tools import CompactState
         state = CompactState()
 
         state.recent_files.append("file1.txt")
