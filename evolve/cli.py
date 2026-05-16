@@ -1,5 +1,6 @@
 
 from dotenv import load_dotenv
+
 # 加载环境变量 - 必须在其他导入之前
 load_dotenv(override=True)
 
@@ -37,7 +38,7 @@ CONCURRENCY_UNSAFE = {"write_file", "edit_file"}
 def is_workspace_trusted(workspace: Path) -> bool:
     """检查是否是受信人工作区"""
     ws = workspace or global_config.WORKDIR
-    setting_path = ws / ".evolve/setting.json"
+    setting_path = ws / ".evolve/settings.json"
     if not setting_path.exists():
         return False
     else:
@@ -60,12 +61,14 @@ TOOLS = [
     task_schema,
     tools.compact_schema,
     tools.memory_schema,
+    tools.run_background_schema,
+    tools.check_background_schema
 ]
 
 # 调用工具
 def execute_tool(block, compact_state: tools.CompactState) -> str:
     tool_name = block.get("name")
-    argv = block.get("input")
+    argv = block.get("input") or {}
     tool_use_id = block.get("id")
     if tool_name == "bash":
         return tools.run_bash(argv["command"], tool_use_id)
@@ -88,6 +91,10 @@ def execute_tool(block, compact_state: tools.CompactState) -> str:
         return "Compacting conversation..."  # 真正的压缩不在这里，在agent loop
     if tool_name == "save_memory":
         tools.memory_mgr.save_memory(argv)
+    if tool_name == "run_background":
+        tools.bg_task_mgr.run(argv["command"])
+    if tool_name == "check_background":
+        tools.bg_task_mgr.check(argv.get("task_id") or None)
     return f"Unknown tool: {tool_name}"
 
 # 统一处理下规范化参数
@@ -176,12 +183,6 @@ def normalize_messages(messages: list) -> list:
 # 动态构建系统提示词
 prompt_builder = SystemPromptBuilder(global_config.WORKDIR, TOOLS)
 
-
-def estimate_tokens(messages: list) -> int:
-    """粗略的评估token， 字符长度除以4/token."""
-    return len(json.dumps(messages, default=str)) // 4
-
-
 # 核心Agent Loop
 def agent_loop(
     messages: list,
@@ -192,8 +193,19 @@ def agent_loop(
 ):
     """单词循环， True会进入下一轮循环 ，False结束循环"""
     while True:
+
         # 组装系统提示词
         system = prompt_builder.build()
+
+        # 取出所有已完成的后台任务
+        notifs = tools.bg_task_mgr.clear_notifications()
+        if notifs and messages:
+            notif_text = "\n".join(
+                f"[bg:{n['task_id']}] {n['status']}: {n['preview']} "
+                f"(output_file={n['output_file']})"
+                for n in notifs
+            )
+            messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
 
         # 规范化参数
         messages[:] = normalize_messages(messages)  # 这是原地修改
@@ -342,7 +354,7 @@ def app():
     if not is_workspace_trusted(global_config.WORKDIR):
         is_trusted = input("> do you trust the current workspace? Allow? (y/n):")
         if is_trusted == "y":
-            setting_file = global_config.WORKDIR / ".evolve/setting.json"
+            setting_file = global_config.WORKDIR / ".evolve/settings.json"
             setting_config = {}
             if setting_file.exists():
                 # 存在读取历史配置
@@ -453,7 +465,7 @@ def app():
 if __name__ == "__main__":
     app()
 
-# 计划测试: 帮我规划五一推荐景点、以及景点的热门项目、美食推荐
+# 计划测试: 调研中华饮食文化变化，按照 搜集、汇总、输出文档 这三部完成
 
 # subAgent测试: 两个子agent分别统计四川、山东的菜系特征、名菜、文化与饮食习惯的关系，主Agent汇总生成 food.md
 

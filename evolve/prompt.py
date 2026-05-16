@@ -102,7 +102,7 @@ class SystemPromptBuilder:
         """
             Memory提示词，格式： 参考load_memory_prompt注释
         """
-        # TODO: 记忆会膨胀，需要定期处理。09提到的 DreamConsolidator
+        # TODO: 记忆会膨胀，需要定期处理
         # TODO: subAgent 支持读memory，不能写
         memory_section = memory_mgr.load_memory_prompt()
         return (

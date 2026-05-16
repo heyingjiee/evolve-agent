@@ -16,4 +16,4 @@ build
 .evolve
 
 .DS_Store
-playground.ipynb
+*.ipynb

@@ -1,14 +1,15 @@
 from .bash import bash_schema, run_bash
 from .compact import CompactState, compact_history, compact_schema, micro_compact, persist_large_output, write_transcript, collect_tool_result_blocks
 from .edit_file import edit_schema, run_edit
-from .memory import MEMORY_TYPES, memory_mgr, memory_schema, MemoryManager, Memory
+from .memory import MEMORY_TYPES, Memory, MemoryManager, memory_mgr, memory_schema
 from .plan import PlanManager, plan_schema
 from .read_file import read_schema, run_read
 from .skill import SKILL_REGISTRY, skill_schema
 from .write_file import run_write, write_schema
+from .background import BackgroundManager, bg_task_mgr, run_background_schema, check_background_schema
 
 __all__ = [
-    "PlanManager",
+    # schema
     "bash_schema",
     "edit_schema",
     "read_schema",
@@ -17,6 +18,10 @@ __all__ = [
     "skill_schema",
     "compact_schema",
     "memory_schema",
+    "run_background_schema",
+    "check_background_schema",
+
+    # 工具
     "run_bash",
     "run_edit",
     "run_read",
@@ -29,7 +34,12 @@ __all__ = [
     "persist_large_output",
     "write_transcript",
     "collect_tool_result_blocks",
+    "bg_task_mgr",
+    "BackgroundManager",
+
+    #
     "MEMORY_TYPES",
-    "MemoryManager",
     "Memory",
+    "MemoryManager",
+
 ]
