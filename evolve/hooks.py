@@ -59,7 +59,6 @@ class HookManager:
     def __init__(self):
         self.hooks = {"PreToolUse": [], "PostToolUse": [], "SessionStart": []}
         hooks_config_path = global_config.WORKDIR / ".evolve" / "hooks.json"
-        hooks_config = {}
         if hooks_config_path.exists():
             hooks_config = json.loads(hooks_config_path.read_text())["hooks"]
             for event in ("PreToolUse", "PostToolUse", "SessionStart"):

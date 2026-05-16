@@ -11,7 +11,6 @@ DEFAULT_RULES = [
     {"tool": "bash", "content": "sudo *", "behavior": "deny"},
     # 允许执行的规则
     {"tool": "read_file", "path": "*", "behavior": "allow"},
-    {"tool": "plan", "path": "*", "behavior": "allow"},
 ]
 # plan模式：允许读，拒绝写
 # 读工具
