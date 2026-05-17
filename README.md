@@ -120,7 +120,7 @@ evolve-agent/
 ├── tests/              # 测试套件
 ├── .evolve/            # 运行时数据
 │   ├── skills/         # 技能运行时
-│   └── .memory/        # 记忆存储
+│   └── memory/        # 记忆存储
 └── AGENT.md            # Agent 指令
 ```
 
