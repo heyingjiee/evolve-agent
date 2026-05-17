@@ -1,5 +1,9 @@
 # evolve-agent
 
+<div align="center">
+  <img src="logo.png" alt="evolve-agent logo" width="100" height="100">
+</div>
+
 基于 Claude API 的 Python AI 编程助手，支持钩子系统、持久化记忆、权限控制、上下文压缩。
 
 ## 待办清单
