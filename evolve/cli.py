@@ -1,7 +1,5 @@
-
-from dotenv import load_dotenv
-
 # 加载环境变量 - 必须在其他导入之前
+from dotenv import load_dotenv
 load_dotenv(override=True)
 
 import json
@@ -381,7 +379,7 @@ def app():
     compact_state = tools.CompactState()
     # 钩子
     hooks = HookManager()
-    # 加载 .evolve/.memory 下的记忆文件
+    # 加载 .evolve/memory 下的记忆文件
     tools.memory_mgr.load_all()
     # 构建好的提示词
     full_prompt = prompt_builder.build()

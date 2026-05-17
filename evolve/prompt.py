@@ -28,7 +28,7 @@ class SystemPromptBuilder:
         self.workdir = workdir
         self.tools = tools_list or []
         self.skills_dir = self.workdir / ".evolve" / "skills"
-        self.memory_dir = self.workdir / ".evolve" / ".memory"
+        self.memory_dir = self.workdir / ".evolve" / "memory"
 
     def build(self):
         """

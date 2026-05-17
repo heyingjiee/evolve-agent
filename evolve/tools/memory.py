@@ -5,7 +5,7 @@ from typing import TypedDict, cast
 from evolve.config import global_config
 
 #### 目录结构 ####
-# .memory/
+# memory/
 #   ├── MEMORY.md          # 索引
 #   ├── prefer_tabs.md     # 用户偏好
 #   ├── feedback_tests.md  # 用户反馈问题（做什么对/不对）
