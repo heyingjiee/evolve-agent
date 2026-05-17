@@ -56,9 +56,6 @@ class BackgroundManager:
         # 任务状态写入文件
         task_state_path.write_text(json.dumps(dict(self.tasks[task_id]), indent=2, ensure_ascii=False)) # 这里浅拷贝dict因为多线程运行run，可能会误改数据
 
-        # 推入通知列表
-        self._notification_queue.append(task_id)
-
         # 多线程执行
         thread = threading.Thread(
             target=self._execute,
@@ -137,6 +134,7 @@ class BackgroundManager:
             output_file = str(log_file_path.relative_to(global_config.WORKDIR))
         except ValueError:
             output_file = str(log_file_path)
+
         notification_task = {
             "task_id": task_id,
             "status": status,

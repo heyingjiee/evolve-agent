@@ -90,11 +90,11 @@ def execute_tool(block, compact_state: tools.CompactState) -> str:
     if tool_name == "compact":
         return "Compacting conversation..."  # 真正的压缩不在这里，在agent loop
     if tool_name == "save_memory":
-        tools.memory_mgr.save_memory(argv)
+        return tools.memory_mgr.save_memory(argv)
     if tool_name == "run_background":
-        tools.bg_task_mgr.run(argv["command"])
+        return tools.bg_task_mgr.run(argv["command"])
     if tool_name == "check_background":
-        tools.bg_task_mgr.check(argv.get("task_id") or None)
+        return tools.bg_task_mgr.check(argv.get("task_id") or None)
     return f"Unknown tool: {tool_name}"
 
 # 统一处理下规范化参数
@@ -201,11 +201,16 @@ def agent_loop(
         notifs = tools.bg_task_mgr.clear_notifications()
         if notifs and messages:
             notif_text = "\n".join(
-                f"[bg:{n['task_id']}] {n['status']}: {n['preview']} "
+                f"[bg:{n['task_id']}] {n['status']}: {n['result_preview']} "
                 f"(output_file={n['output_file']})"
                 for n in notifs
             )
-            messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+            messages.append({
+                "role": "user",
+                "content": [
+                    { "type": "text", "text": f"<background-results>\n{notif_text}\n</background-results>"}
+                ]
+            })
 
         # 规范化参数
         messages[:] = normalize_messages(messages)  # 这是原地修改
@@ -383,9 +388,6 @@ def app():
     section_count = full_prompt.count("\n# ")
     print(f"[System prompt assembled: {len(full_prompt)} chars, ~{section_count} sections]")
 
-    # 启动设置权限模式
-    # mode_input = input("choose mode (default/plan/auto): ").strip().lower() or "default"
-    # print(f"[Using {mode_input} mode]")
     perms = PermissionManager(mode="default")
 
     while True:
@@ -397,16 +399,6 @@ def app():
         # 退出
         if query.lower() in ("exit", "q"):
             break
-
-        # /mode <mode> 切换权限模式
-        if query.startswith("/mode"):
-            parts = query.split()
-            if len(parts) == 2:
-                perms.mode = parts[1]
-                print(f"[Switched to {parts[1]} mode]")
-            else:
-                print(f"Usage: /mode <{'|'.join(MODES)}>")
-            continue
 
         # /rules 展示当前规则集合
         if query == "/rules":

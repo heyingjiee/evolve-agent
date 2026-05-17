@@ -33,7 +33,7 @@ type: user
 The user explicitly prefers tabs over spaces when editing source files.
 """
 
-MEMORY_DIR = global_config.WORKDIR / ".evolve/.memory"
+MEMORY_DIR = global_config.WORKDIR / ".evolve/memory"
 
 
 class Memory(TypedDict):

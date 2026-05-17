@@ -1,22 +1,16 @@
 import json
 import re
-from fnmatch import fnmatch
 
 # 权限模式
-MODES = ["default", "plan", "auto"]
+MODES = ["default"]
 # 默认规则
 DEFAULT_RULES = [
     # 拒绝执行的规则
-    {"tool": "bash", "content": "rm -rf /", "behavior": "deny"},
-    {"tool": "bash", "content": "sudo *", "behavior": "deny"},
+    {"tool": "bash", "input": '{"command": "rm -rf /"}', "behavior": "deny"},
+    {"tool": "bash", "input": '{"command": "sudo "}', "behavior": "deny"},
     # 允许执行的规则
-    {"tool": "read_file", "path": "*", "behavior": "allow"},
+    {"tool": "read_file", "input": '{"path": "*"}', "behavior": "allow"},
 ]
-# plan模式：允许读，拒绝写
-# 读工具
-READ_ONLY_TOOL = ['read_file']
-# 写工具
-WRITE_TOOLS = ['write_file', 'edit_file', 'bash']
 
 class BashSecurityValidator:
     # 攻击bash脚本的正则
@@ -70,7 +64,13 @@ class PermissionManager:
                      {"behavior": "ask", "reason": "xxx"}
             这个reason是用来加到上下文对话中，作为工具返回的结果
         """
-        # bash 权限太大，需要单独处理
+        # 先检查内部规则
+        for rule in self.rules:
+            if rule["behavior"] == "allow" and self._matches(rule, tool_name, tool_input):
+                self.consecutive_denials = 0
+                return {"behavior": "allow", "reason": f"Matched allow rule: {rule}"}
+
+        # bash 权限需要单独处理
         if tool_name == "bash":
             command = tool_input.get("command", "")
             failures = bash_validator.validate(command)
@@ -80,28 +80,9 @@ class PermissionManager:
                 if server_hit:
                     desc = bash_validator.describe_failures(command)
                     return {"behavior": "deny", "reason": f"Bash validator: {desc}"}
-            # 其他清空询问
+            # 其他询问用户
             desc = bash_validator.describe_failures(command)
-            return {"behavior": "ask","reason": f"Bash validator flagged: {desc}"}
-
-        # 查下内部规则如果允许，就放行
-        for rule in self.rules:
-            if rule["behavior"] == "allow" and self._matches(rule, tool_name, tool_input):
-                self.consecutive_denials = 0
-                return {"behavior": "allow", "reason": f"Matched allow rule: {rule}"}
-
-        # mode=plan 的校验规则： 允许读操作，但是拒绝所有写操作
-        if self.mode == "plan":
-            if tool_name in WRITE_TOOLS:
-                return {"behavior": "deny", "reason":"Plan mode: write operations are blocked"}
-            return {"behavior": "allow", "reason":"Plan mode: read-only allowed"}
-
-        # mode=auto 的校验规则：在rules中只查找如果允许，就允许
-        if self.mode == "auto":
-            for rule in self.rules:
-                if self._matches(rule, tool_name, tool_input):
-                    self.consecutive_denials = 0
-                    return {"behavior": "allow", "reason": f"Matched allow rule: {rule}"}
+            return {"behavior": "ask", "reason": f"Bash validator flagged: {desc}"}
 
         # 询问用户
         return {"behavior": "ask", "reason": f"No rule matched for {tool_name}, asking user"}
@@ -115,9 +96,10 @@ class PermissionManager:
         except (KeyboardInterrupt,EOFError):
             return False
 
-        # 永久允许，追加到内部规则
+        # 永久允许，追加到内部规则（存输入参数完整字符串）
         if answer == "always":
-            self.rules.append({"tool": tool_name, "content": "*", "behavior": "allow"},)
+            input_str = json.dumps(tool_input, sort_keys=True, ensure_ascii=False)
+            self.rules.append({"tool": tool_name, "input": input_str, "behavior": "allow"})
             self.consecutive_denials = 0
             return True
         # 允许
@@ -135,18 +117,14 @@ class PermissionManager:
         """
             工具+参数是否符合规则
             rule:
-                {"tool": "bash", "content": "rm -rf /", "behavior": "deny"},
-                {"tool": "bash", "path": "*", "behavior": "deny"},
-            rule有两种形式 content、path
+                {"tool": "bash", "input": '{"command": "ls"}', "behavior": "allow"},
+            精确匹配工具名和完整输入参数
         """
         if rule.get("tool") == "*":
             return True
 
         if rule.get("tool") == tool_name:
-            # path
-            if "path" in rule:
-                return fnmatch(tool_input.get("path",""), rule["path"])
-             # content
-            if "content" in rule:
-                return fnmatch(tool_input.get("command",""), rule["content"])
+            if "input" in rule:
+                input_str = json.dumps(tool_input, sort_keys=True, ensure_ascii=False)
+                return input_str == rule["input"]
         return False
