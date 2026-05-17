@@ -3,20 +3,20 @@
 基于 Claude API 的 Python AI 编程助手，支持钩子系统、持久化记忆、权限控制、上下文压缩。
 
 ## 待办清单
-[] 终端样式调整（替换为typer）
-[] 替换 evolve agent 子命令启动本地Agent
-[] 支持 channel gateway 能力（优先级低）
-[] 持久化 Session 能力
-[] trace 追踪调用流程能力
-[] token 用量追踪
-[] 支持以知识仓库为核心的迭代模式（以md格式存储在统一Github仓库）
-    [] 提供内置Skill /import-wiki :拉取知识仓库到本地项目
-    [] 提供内置Skill /spec :提取知识仓库信息做内部规划
-    [] 提供内置Skill /apply-spec :执行规划
-    [] 提供内置Skill /extra-wiki :提取当前 Session Summary，自动PR至知识仓库 （知识库作者审核合并入库）
-[] evolve wiki 子命令维护知识仓库
-    [] 知识成熟度晋升、衰退
-    [] 知识提交日志维护
+[ ] 终端样式调整（替换为typer）
+[ ] 替换 evolve agent 子命令启动本地Agent
+[ ] 支持 channel gateway 能力（优先级低）
+[ ] 持久化 Session 能力
+[ ] trace 追踪调用流程能力
+[ ] token 用量追踪
+[ ] 支持以知识仓库为核心的迭代模式（以md格式存储在统一Github仓库）
+    [ ] 提供内置Skill /import-wiki :拉取知识仓库到本地项目
+    [ ] 提供内置Skill /spec :提取知识仓库信息做内部规划
+    [ ] 提供内置Skill /apply-spec :执行规划
+    [ ] 提供内置Skill /extra-wiki :提取当前 Session Summary，自动PR至知识仓库 （知识库作者审核合并入库）
+[ ] evolve wiki 子命令维护知识仓库
+    [ ] 知识成熟度晋升、衰退
+    [ ] 知识提交日志维护
 
 
 
