@@ -31,6 +31,7 @@
 
 ```json
 {
+  "trust": true,
   "hooks": {
     "PreToolUse": [
       {
@@ -47,6 +48,8 @@
   }
 }
 ```
+
+配置文件路径：`.evolve/settings.json`。
 
 ### 持久化记忆
 跨会话持久化的记忆系统，支持四种类型：
@@ -73,10 +76,11 @@
 uv sync
 ```
 
-### 配置 API Key
+### 配置环境变量
 
 ```shell
-export ANTHROPIC_API_KEY="sk-ant-..."
+export API_KEY="sk-ant-..."
+export MODEL="claude-sonnet-4-20250514"
 ```
 
 或创建 `.env` 文件（参考 `.env.example`）。
@@ -84,7 +88,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ### 运行
 
 ```shell
-uv run start
+uv run evolve agent
 ```
 
 或直接：
@@ -102,25 +106,24 @@ python -m evolve
 ```
 evolve-agent/
 ├── evolve/
-│   ├── agents/          # Agent 实现
-│   ├── cli.py           # CLI 入口
-│   ├── config.py        # 全局配置
-│   ├── hooks.py        # 钩子系统（HookManager）
+│   ├── agents/         # 子 Agent 与任务执行
+│   ├── cli/            # Typer CLI 入口与子命令
+│   ├── config.py       # 配置对象
+│   ├── hooks.py        # HookManager
 │   ├── permission/     # 权限管理
 │   ├── prompt.py       # 系统提示词构建
+│   ├── runtime.py      # Evolve 运行时
 │   ├── tools/          # 工具实现
-│   │   ├── bash.py
-│   │   ├── compact.py   # 上下文压缩
-│   │   ├── memory.py   # 记忆管理
-│   │   ├── plan.py
-│   │   └── ...
 │   ├── skills/         # 技能定义
 │   │   └── commit/
-│   └── shared/         # 共享工具
+│   └── shared/         # 共享工具与基础方法
 ├── tests/              # 测试套件
 ├── .evolve/            # 运行时数据
-│   ├── skills/         # 技能运行时
-│   └── memory/        # 记忆存储
+│   ├── sessions/       # 会话持久化
+│   ├── background-tasks/
+│   ├── compact/
+│   ├── memory/
+│   └── settings.json   # trust / hooks 等配置
 └── AGENT.md            # Agent 指令
 ```
 
@@ -141,7 +144,7 @@ ruff check . --fix
 ### 运行测试
 
 ```shell
-pytest
+uv run pytest
 ```
 
 ### 项目依赖

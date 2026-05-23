@@ -12,10 +12,12 @@
 
 ##  项目目录结构说明
 （在此处简要描述关键目录的作用，帮助 Agent 理解文件位置）
-- `/src`: 核心源代码目录
+- `/evolve`: 核心源代码目录
+- `/evolve/cli`: CLI 命令入口
+- `/evolve/runtime.py`: 主运行时实现
+- `/evolve/tools`: 工具实现
 - `/tests`: 单元测试与集成测试
-- `/docs`: 项目文档与 API 说明
-- `/scripts`: 自动化运维或部署脚本
+- `/.evolve`: 本地运行时数据目录
 
 ##  代码生成规范
 - **命名规范**: 变量和函数使用 [例如：snake_case]，类名使用 [例如：PascalCase]。

@@ -1,10 +1,11 @@
 import subprocess
+from pathlib import Path
+
 from evolve.tools.compact import persist_large_output
-from evolve.config import global_config
 
 
-def run_bash(command: str, tool_use_id: str) -> str:
-    """" bash 工具 """
+def run_bash(command: str, tool_use_id: str, workspace: Path) -> str:
+    """执行 bash 工具。"""
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(item in command for item in dangerous):
         return "Error: Dangerous command block"
@@ -12,7 +13,7 @@ def run_bash(command: str, tool_use_id: str) -> str:
         result = subprocess.run(
             command,
             shell=True,
-            cwd=global_config.WORKDIR,
+            cwd=workspace,
             capture_output=True,
             text=True,
             timeout=120,
@@ -23,16 +24,15 @@ def run_bash(command: str, tool_use_id: str) -> str:
         return f"Error: {e}"
 
     output = (result.stdout + result.stderr).strip()
-    return persist_large_output(tool_use_id, output if output else "(no output)")
+    return persist_large_output(tool_use_id, output if output else "(no output)", workspace)
 
-# schema
-bash_schema =  {
+
+bash_schema = {
     "name": "bash",
     "description": "Run a shell command in the current workspace",
     "input_schema": {
         "type": "object",
         "properties": {"command": {"type": "string"}},
-        "required": ["command"]
-    }
+        "required": ["command"],
+    },
 }
-

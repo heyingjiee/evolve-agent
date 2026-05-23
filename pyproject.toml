@@ -9,6 +9,9 @@ dependencies = [
     "ipykernel>=7.2.0",
     "path>=17.1.1",
     "python-dotenv>=1.2.2",
+    "ruff>=0.15.14",
+    "textual>=8.2.7",
+    "typer>=0.25.1",
 ]
 
 [dependency-groups]
@@ -23,5 +26,12 @@ pythonpath = ["evolve"]
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["E402"] # 忽略规则
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["evolve"]
+
 [project.scripts]
-start = "evolve.cli:app"
+evolve = "evolve.cli.app:app"

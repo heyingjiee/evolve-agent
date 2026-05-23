@@ -2,7 +2,7 @@
 Memory E2E 测试 - 模拟 LLM 调用 save_memory 工具的完整流程
 
 测试策略：
-1. Mock global_config.client.messages.create() 模拟 LLM 返回工具调用
+1. Mock client.messages.create() 模拟 LLM 返回工具调用
 2. 模拟 LLM 决定调用 save_memory 的场景
 3. 验证完整流程：LLM → 工具调用 → 结果返回 → LLM 再次推理
 """

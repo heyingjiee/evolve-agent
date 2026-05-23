@@ -1,5 +1,5 @@
 """
-Entry point for running evolve as a module: python -m evolve
+以模块方式运行 evolve 的入口：`python -m evolve`
 """
 
 from evolve.cli import app
