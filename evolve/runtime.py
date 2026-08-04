@@ -7,7 +7,7 @@ from evolve import tools
 from evolve.agents.task import run_task_subagent, task_schema
 from evolve.config import Config
 from evolve.hooks import Context, HookManager
-from evolve.permission.manager import PermissionManager
+from evolve.permission import PermissionManager
 from evolve.prompt import SystemPromptBuilder
 from evolve.tools.background import BackgroundManager
 from evolve.tools.memory import MemoryManager

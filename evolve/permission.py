@@ -33,6 +33,7 @@ class BashSecurityValidator:
     def is_safe(self, command: str) -> bool:
         """ 命令是否安全 """
         return len(self.validate(command)) == 0
+
     def describe_failures(self, command: str) -> str:
         """ 失败信息 """
         failures = self.validate(command)
@@ -93,7 +94,7 @@ class PermissionManager:
         print(f"[Permission]\n{tool_name}: {preview}")
         try:
             answer = input("Allow? (y/n/always): ").strip().lower()
-        except (KeyboardInterrupt,EOFError):
+        except (KeyboardInterrupt, EOFError):
             return False
 
         # 永久允许，追加到内部规则（存输入参数完整字符串）
@@ -116,9 +117,6 @@ class PermissionManager:
     def _matches(self, rule: dict, tool_name: str, tool_input: dict) -> bool:
         """
             工具+参数是否符合规则
-            rule:
-                {"tool": "bash", "input": '{"command": "ls"}', "behavior": "allow"},
-            精确匹配工具名和完整输入参数
         """
         if rule.get("tool") == "*":
             return True
